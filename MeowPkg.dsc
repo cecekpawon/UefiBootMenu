@@ -20,56 +20,56 @@
 #
 ################################################################################
 [Defines]
-  PLATFORM_NAME                  = MeowPkg
-  PLATFORM_GUID                  = 1831fd51-282e-43f0-bd2c-1b526f790110
-  PLATFORM_VERSION               = 0.1
-  DSC_SPECIFICATION              = 0x00010005
-  OUTPUT_DIRECTORY               = Build/MeowPkg
-  SUPPORTED_ARCHITECTURES        = IA32|X64|ARM|AARCH64
-  BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
-  SKUID_IDENTIFIER               = DEFAULT
+	PLATFORM_NAME                  = MeowPkg
+	PLATFORM_GUID                  = 1831FD51-282E-43F0-BD2C-1B526F790110
+	PLATFORM_VERSION               = 0.1
+	DSC_SPECIFICATION              = 0x00010005
+	OUTPUT_DIRECTORY               = Build/MeowPkg
+	SUPPORTED_ARCHITECTURES        = IA32|X64|ARM|AARCH64
+	BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
+	SKUID_IDENTIFIER               = DEFAULT
 #
 #  Debug output control
 #
-  DEFINE DEBUG_ENABLE_OUTPUT      = FALSE       # Set to TRUE to enable debug output
-  DEFINE DEBUG_PRINT_ERROR_LEVEL  = 0x80000040  # Flags to control amount of debug output
-  DEFINE DEBUG_PROPERTY_MASK      = 0
+	DEFINE DEBUG_ENABLE_OUTPUT      = FALSE       # Set to TRUE to enable debug output
+	DEFINE DEBUG_PRINT_ERROR_LEVEL  = 0x80000040  # Flags to control amount of debug output
+	DEFINE DEBUG_PROPERTY_MASK      = 0
 
-  
+
 ################################################################################
 #
 # Pcd Section - list of all EDK II PCD Entries defined by this Platform
 #
 ################################################################################
 [PcdsFixedAtBuild]
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|$(DEBUG_PROPERTY_MASK)
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL)
+	gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|$(DEBUG_PROPERTY_MASK)
+	gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL)
 
-  
+
 ################################################################################
 #
 # Library Class section - list of all Library Classes needed by this Platform.
 #
 ################################################################################
 [LibraryClasses]
-  #
-  # Entry Point Libraries
-  #
-  UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
-  
-  #
-  # Common Libraries
-  #
-  BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
-  BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
-  UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
-  PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
-  PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
-  MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
-  UefiBootServicesTableLib|MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.inf
-  UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
-  
-  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
+	#
+	# Entry Point Libraries
+	#
+	UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
+
+	#
+	# Common Libraries
+	#
+	BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
+	BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
+	UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
+	PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
+	PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+	MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+	UefiBootServicesTableLib|MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.inf
+	UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
+
+	UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
 	DxeServicesTableLib|MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
 	DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
 	PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
@@ -79,26 +79,26 @@
 	HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
 	SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
 	UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
-  
-  !if $(DEBUG_ENABLE_OUTPUT)
-    DebugLib|MdePkg/Library/UefiDebugLibConOut/UefiDebugLibConOut.inf
-    DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
-  !else   ## DEBUG_ENABLE_OUTPUT
-    DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
-  !endif  ## DEBUG_ENABLE_OUTPUT
 
-  DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
-  #IoLib|MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsic.inf
-  #PciLib|MdePkg/Library/BasePciLibCf8/BasePciLibCf8.inf
-  #PciCf8Lib|MdePkg/Library/BasePciCf8Lib/BasePciCf8Lib.inf
-  #SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
-  #UefiRuntimeLib|MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
-  #HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
-  #UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
-  FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
-  SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
+	!if $(DEBUG_ENABLE_OUTPUT)
+		DebugLib|MdePkg/Library/UefiDebugLibConOut/UefiDebugLibConOut.inf
+		DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
+	!else   ## DEBUG_ENABLE_OUTPUT
+		DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+	!endif  ## DEBUG_ENABLE_OUTPUT
 
-  
+	DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+	#IoLib|MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsic.inf
+	#PciLib|MdePkg/Library/BasePciLibCf8/BasePciLibCf8.inf
+	#PciCf8Lib|MdePkg/Library/BasePciCf8Lib/BasePciCf8Lib.inf
+	#SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
+	#UefiRuntimeLib|MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
+	#HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
+	#UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
+	FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
+	SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
+
+
 ###################################################################################################
 #
 # Components Section - list of the modules and components that will be processed by compilation
@@ -118,15 +118,15 @@
 #
 ###################################################################################################
 [Components]
-  MeowPkg/Meow/Meow.inf
- 
- 
+	MeowPkg/Meow/Meow.inf
+
+
 ###################################################################################################
 #
 # BuildOptions Section - Define the module specific tool chain flags that should be used as
-#                        the default flags for a module. These flags are appended to any 
-#                        standard flags that are defined by the build process. They can be 
-#                        applied for any modules or only those modules with the specific 
+#                        the default flags for a module. These flags are appended to any
+#                        standard flags that are defined by the build process. They can be
+#                        applied for any modules or only those modules with the specific
 #                        module style (EDK or EDKII) specified in [Components] section.
 #
 ###################################################################################################

@@ -20,10 +20,10 @@
 # A dec file contains "export" data.
 
 [Defines]
-  DEC_SPECIFICATION              = 0x00010005
-  PACKAGE_NAME                   = MeowPkg
-  PACKAGE_GUID                   = d4a4d4f5-de33-4bcb-9f85-45c034ea4cde
-  PACKAGE_VERSION                = 0.1
+  DEC_SPECIFICATION   = 0x00010005
+  PACKAGE_NAME        = MeowPkg
+  PACKAGE_GUID        = D4A4D4F5-DE33-4BCB-9F85-45C034EA4CDE
+  PACKAGE_VERSION     = 0.1
 
 # It's not a library package so no "Includes".
 #[Includes]

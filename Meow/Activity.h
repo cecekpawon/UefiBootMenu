@@ -2,47 +2,66 @@
 #define __MEOW_ACTIVITY_H__
 
 #include <Uefi.h>
+
 #include <Protocol/GraphicsOutput.h>
+
+#include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
-//Typedefs, struct declares.
+// Typedefs, struct declares.
 
-typedef struct RECT RECT;
-typedef struct ACTIVITY ACTIVITY;
+typedef struct RECT       RECT;
+typedef struct ACTIVITY   ACTIVITY;
 
-//Function declares.
+// Function declares.
 
-EFI_STATUS ActivityInitialize( ACTIVITY *this, UINT32 width, UINT32 height );
+EFI_STATUS
+ActivityInitialize (
+  IN OUT  ACTIVITY  *Activity,
+  IN      UINT32    Width,
+  IN      UINT32    Height
+  );
 
-void ActivityInvalidate( ACTIVITY *this, RECT rect );
+VOID
+ActivityInvalidate (
+  IN OUT  ACTIVITY  *Activity,
+  IN      RECT      Rect
+  );
 
-EFI_STATUS ActivityRender( ACTIVITY *this, EFI_GRAPHICS_OUTPUT_PROTOCOL *graphProtocol );
 
-//Struct defines.
+EFI_STATUS
+ActivityRender (
+  IN OUT  ACTIVITY                      *Activity,
+  IN      EFI_GRAPHICS_OUTPUT_PROTOCOL  *GraphProtocol
+  );
 
-struct RECT{
-	UINT32 x;
-	UINT32 y;
-	UINT32 w;
-	UINT32 h;
+VOID
+ClearScreen (
+  IN  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Color
+);
+
+VOID
+FreeActivity (
+  VOID
+  );
+
+// Struct defines.
+
+struct RECT {
+  UINT32  PosX;
+  UINT32  PosY;
+  UINT32  Width;
+  UINT32  Height;
 };
 
-struct ACTIVITY{
-	void (*onStart )( ACTIVITY*);
-	void (*onResume )( ACTIVITY*);
-	void (*onPause )( ACTIVITY*);
-	void (*onEnd )( ACTIVITY*);
-	void (*onEvent )( ACTIVITY*);
-	ACTIVITY *parent;
-	BOOLEAN isNonFullScreen;
-	UINT32 width;
-	UINT32 height;
-	EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buffer;
-	UINT8 countInvalid;
-	RECT invalids[64];
-	UINTN evCount;
-	UINTN evIndex;
-	EFI_EVENT events[5];
+struct ACTIVITY {
+  ACTIVITY                        *Parent;
+  //BOOLEAN                         IsNonFullScreen;
+  UINT32                          Width;
+  UINT32                          Height;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   *Buffer;
+  UINT8                           CountInvalid;
+  RECT                            Invalids[64];
 };
 
 #endif

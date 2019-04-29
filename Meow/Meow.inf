@@ -1,45 +1,31 @@
 [Defines]
-	INF_VERSION	= 0x00010005
-	BASE_NAME	= Meow
-	FILE_GUID	= 6987936E-ED34-ffdb-AE97-1FA5E4ED2117
-	MODULE_TYPE	= UEFI_APPLICATION
-	VERSION_STRING	= 0.1
-	ENTRY_POINT	= UefiMain
+  INF_VERSION     = 0x00010005
+  BASE_NAME       = Meow
+  FILE_GUID       = 6987936E-ED34-FFDB-AE97-1FA5E4ED2117
+  MODULE_TYPE     = UEFI_APPLICATION
+  VERSION_STRING  = 0.1
+  ENTRY_POINT     = UefiMain
 
 [Sources]
-	Meow.c
-	MeowFunctions.h
-	Activity.h
-	Activity.c
-	MainActivity.h
-	MainActivity.c
+  Activity.c
+  MainActivity.c
+  Meow.c
 
 [Packages]
-	MdePkg/MdePkg.dec
-	MdeModulePkg/MdeModulePkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
 
 [LibraryClasses]
-	UefiApplicationEntryPoint
-	UefiLib
-	UefiBootServicesTableLib
-	MemoryAllocationLib
-	BaseMemoryLib
-	UefiBootManagerLib
-#	  DebugLib
-  #HiiLib
-  #PcdLib
-	
+  BaseMemoryLib
+  MemoryAllocationLib
+  UefiApplicationEntryPoint
+  UefiBootManagerLib
+  UefiBootServicesTableLib
+  UefiLib
+
 [Protocols]
-	#gEfiGraphicsOutputProtocolGuid
-#	gEfiDevicePathProtocolGuid                    ## TO_START
-#  gEfiSimpleTextOutProtocolGuid                 ## BY_START
-  gEfiGraphicsOutputProtocolGuid                ## TO_START
-  gEfiSimpleTextInputExProtocolGuid
-  gEfiSimplePointerProtocolGuid
-  gEfiHiiFontProtocolGuid
   gEfiDevicePathToTextProtocolGuid
-#  gEfiUgaDrawProtocolGuid                       ## TO_START
-#  gEfiHiiFontProtocolGuid                       ## TO_START
-  ## TO_START
-  ## NOTIFY
-#  gEfiHiiDatabaseProtocolGuid
+  gEfiGraphicsOutputProtocolGuid
+  gEfiHiiFontProtocolGuid
+  gEfiSimplePointerProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid

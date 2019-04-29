@@ -11,7 +11,7 @@ A graphic uefi boot menu as application ( post Dxe only )
 Oh really? Are you serious?
 
 1. Clone/Download UDK2018 & get ready, from [Here](https://github.com/tianocore/tianocore.github.io/wiki/UDK2018-How-to-Build#how-to-build-windows-system).
-2. Build emulator. For windows: 
+2. Build emulator. For windows:
 ```cmd
   edksetup.bat --nt32
   build -a X64 -t VS2017 -p Nt32Pkg/Nt32Pkg.dsc

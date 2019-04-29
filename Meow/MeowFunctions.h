@@ -3,26 +3,38 @@
 
 #include <Protocol/DevicePath.h>
 
-EFI_STATUS DrawString( CHAR16 *string, const EFI_FONT_DISPLAY_INFO *fontDisplayInfo,
-	EFI_IMAGE_OUTPUT *imageOutput, UINTN x, UINTN y );
-	
-EFI_STATUS DrawLines( CHAR16 *string, const EFI_FONT_DISPLAY_INFO *fontDisplayInfo,
-	EFI_IMAGE_OUTPUT *imageOutput, UINTN x, UINTN y );
+#include <Library/UefiLib.h>
 
-void Log( IN CHAR16 *text );
+EFI_STATUS
+DrawLines (
+  IN   CHAR16                  *String,
+  IN   EFI_FONT_DISPLAY_INFO   *FontDisplayInfo,
+  OUT  EFI_IMAGE_OUTPUT        *ImageOutput,
+  IN   UINTN                   PosX,
+  IN   UINTN                   PosY
+  );
 
-UINT32 SprintUint( UINT32 decimal, CHAR16 *buffer, UINT32 offset );
+VOID
+Log (
+  IN  CHAR16   *Text
+  );
 
-UINT32 Max( UINT32 one, UINT32 another );
+UINT32
+SprintUint (
+  IN   UINT32   Decimal,
+  OUT  CHAR16   *Buffer,
+  IN   UINT32   Offset
+  );
 
-EFI_EVENT GetKeyWaitor();
+UINT32
+Max (
+  IN  UINT32  One,
+  IN  UINT32  Another
+  );
 
-EFI_STATUS GetOneSecWaitor( OUT EFI_EVENT *event );
-
-EFI_STATUS CancelTimer( EFI_EVENT *event );
-
-EFI_STATUS GetKey( EFI_INPUT_KEY *key );
-
-CHAR16 *MeowPathToText( EFI_DEVICE_PATH_PROTOCOL *path );
+CHAR16 *
+MeowPathToText (
+  IN  EFI_DEVICE_PATH_PROTOCOL  *Path
+  );
 
 #endif

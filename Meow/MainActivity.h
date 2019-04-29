@@ -2,30 +2,45 @@
 #define __MEOW_MAIN_ACTIVITY_H__
 
 #include "Activity.h"
+
 #include <Protocol/HiiFont.h>
+
+#include <Library/BaseMemoryLib.h>
 #include <Library/UefiBootManagerLib.h>
 
-typedef struct{
-	ACTIVITY Activity;
-	EFI_GRAPHICS_OUTPUT_BLT_PIXEL *bgBuffer;
-	CHAR16 *staticTexts[8];
-	UINTN BootOptionCount;
-	EFI_BOOT_MANAGER_LOAD_OPTION *BootOptions;
-	UINT32 BootOptionBaseY;
-	UINT32 BootFailedBaseY;
-	UINT32 BootAutoBaseY;
-	UINT32 BootPathBaseY;
-	UINTN TimerCount;
-	UINTN selection;
-	BOOLEAN IfShowBootFailed;
+typedef struct {
+  ACTIVITY                        Activity;
+  CHAR16                          *StaticTexts[8];
+  EFI_BOOT_MANAGER_LOAD_OPTION    *BootOptions;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   *BgBuffer;
+  INT8                            TimerCount;
+  UINT32                          BootAutoBaseY;
+  UINT32                          BootFailedBaseY;
+  UINT32                          BootOptionBaseY;
+  UINT32                          BootPathBaseY;
+  UINT32                          Width;
+  UINT32                          Height;
+  UINTN                           Selection;
+  UINTN                           BootOptionCount;
+  BOOLEAN                         IfShowBootFailed;
 } MAIN_ACTIVITY;
 
-EFI_STATUS newMainActivity( IN UINT32 width, IN UINT32 height, OUT ACTIVITY** Activity );
 
-void MainActivityOnStart( ACTIVITY *this );
+EFI_STATUS
+NewMainActivity (
+  IN   UINT32     Width,
+  IN   UINT32     Height,
+  OUT  ACTIVITY   **Activity
+  );
 
-void MainActivityOnEnd( ACTIVITY *this );
+VOID
+MainActivityOnStart (
+  IN OUT  ACTIVITY  *Activity
+  );
 
-void MainActivityOnEvent( ACTIVITY *this );
+UINT32
+MainActivityOnEvent (
+  IN OUT  ACTIVITY  *Activity
+  );
 
 #endif

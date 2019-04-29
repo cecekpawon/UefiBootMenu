@@ -1,328 +1,638 @@
 #include "MainActivity.h"
 #include "MeowFunctions.h"
 
-#define COLOR_BG {0xdd, 0x10, 0x10, 0x00}
-#define COLOR_FG {0xff, 0x79, 0x29, 0x00}
+#define BLACK_BG                  { 0 }
+#define COLOR_BG                  { 0xDD, 0x10, 0x10, 0x00 }
+#define COLOR_FG                  { 0xFF, 0x79, 0x29, 0x00 }
 
-#define DIM_ITEM_SEL_H_OFFSET 40
-#define DIM_ITEM_SEL_HEIGHT 32
-#define DIM_ITEM_TEXT_X_OFFSET 80
-#define DIM_ITEM_TEXT_Y_OFFSET 8
-#define DIM_PARA_SEP 16
-#define DIM_TITLE_Y_OFFSET 40
+#define DIM_ITEM_SEL_H_OFFSET     (40)
+#define DIM_ITEM_SEL_HEIGHT       (32)
+#define DIM_ITEM_TEXT_X_OFFSET    (80)
+#define DIM_ITEM_TEXT_Y_OFFSET    (8)
+#define DIM_PARA_SEP              (16)
+#define DIM_TITLE_Y_OFFSET        (40)
 
-void MainActivityDrawRect( EFI_GRAPHICS_OUTPUT_BLT_PIXEL *buffer, UINT32 width, RECT rect,
-		EFI_GRAPHICS_OUTPUT_BLT_PIXEL color, OPTIONAL EFI_GRAPHICS_OUTPUT_BLT_PIXEL *bg ){
-	UINT32 base = width * rect.y + rect.x;
-	for( UINT32 y = 0; y<rect.h; y++ ){
-		UINT32 offset = base + y * width;
-		for( UINT32 x = 0; x<rect.w; x++ )
-			buffer[offset + x] = bg ? bg[offset + x] : color;
-	}
+#define TIMER_COUNT               (10)
+
+STATIC
+VOID
+MainActivityDrawRect (
+  OUT  EFI_GRAPHICS_OUTPUT_BLT_PIXEL           *Buffer,
+  IN   UINT32                                  Width,
+  IN   RECT                                    Rect,
+  IN   EFI_GRAPHICS_OUTPUT_BLT_PIXEL           Color,
+  IN   EFI_GRAPHICS_OUTPUT_BLT_PIXEL           *Bg  OPTIONAL
+  )
+{
+  UINT32  y;
+  UINT32  x;
+  UINT32  Base;
+
+  //
+
+  Base = Width * Rect.PosY + Rect.PosX;
+
+  for (y = 0; y < Rect.Height; y++) {
+
+    UINT32  Offset;
+
+    //
+
+    Offset = Base + y * Width;
+
+    for (x = 0; x < Rect.Width; x++) {
+      Buffer[Offset + x] = Bg ? Bg[Offset + x] : Color;
+    }
+  }
 }
 
-EFI_STATUS MainActivityDrawString( MAIN_ACTIVITY *this, CHAR16 *string, 
-		UINTN x, UINTN y, BOOLEAN reverse ){
-	EFI_FONT_DISPLAY_INFO displayInfo = { {0, 0, 0, 0}, {0, 0, 0, 0}, EFI_FONT_INFO_ANY_FONT,
-		{EFI_HII_FONT_STYLE_NORMAL, 0, L'0'}
-	};
-	if( reverse )
-		displayInfo.ForegroundColor = ( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_BG;
-	else
-		displayInfo.ForegroundColor = ( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_FG;
-	
-	EFI_IMAGE_OUTPUT output;
-	output.Width = ( UINT16 ) this->Activity.width;
-	output.Height = ( UINT16 ) this->Activity.height;
-	output.Image.Bitmap = this->Activity.buffer;
-	
-	return DrawLines( string, &displayInfo, &output, x, y );
+STATIC
+EFI_STATUS
+MainActivityDrawString (
+  IN  MAIN_ACTIVITY   *MainActivity,
+  IN  CHAR16          *String,
+  IN  UINTN           PosX,
+  IN  UINTN           PosY,
+  IN  BOOLEAN         Reverse
+  )
+{
+  EFI_FONT_DISPLAY_INFO   DisplayInfo;
+  EFI_IMAGE_OUTPUT        Output;
+
+  //
+
+  ZeroMem (&DisplayInfo, sizeof (EFI_FONT_DISPLAY_INFO));
+
+  DisplayInfo.FontInfoMask = EFI_FONT_INFO_ANY_FONT;
+
+  if (Reverse) {
+    DisplayInfo.ForegroundColor = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_BG;
+  }
+
+  else {
+    DisplayInfo.ForegroundColor = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_FG;
+  }
+
+  Output.Width        = (UINT16)MainActivity->Activity.Width;
+  Output.Height       = (UINT16)MainActivity->Activity.Height;
+  Output.Image.Bitmap = MainActivity->Activity.Buffer;
+
+  return DrawLines (String, &DisplayInfo, &Output, PosX, PosY);
 }
 
-EFI_STATUS MainActivityDrawBootOption( MAIN_ACTIVITY *this, UINTN index,
-		BOOLEAN reverse, BOOLEAN update ){
-	EFI_STATUS status;
-	UINT32 y = this->BootOptionBaseY + DIM_ITEM_SEL_HEIGHT * ( UINT32 ) index;
-	RECT rect, rectPath;
-	rect.x = DIM_ITEM_SEL_H_OFFSET;
-	rect.y = y;
-	rect.w = this->Activity.width - 2 * DIM_ITEM_SEL_H_OFFSET;
-	rect.h = DIM_ITEM_SEL_HEIGHT;
-	
-	if( reverse ){
-		MainActivityDrawRect( this->Activity.buffer, this->Activity.width, rect,
-			( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_FG, NULL );
-		// Reversed measn selected, also draw boot path.
-		rectPath.x = 0;//DIM_ITEM_SEL_H_OFFSET;
-		rectPath.y = this->BootPathBaseY;
-		rectPath.w = this->Activity.width;
-		rectPath.h = DIM_ITEM_SEL_HEIGHT * 2;
-		MainActivityDrawRect( this->Activity.buffer, this->Activity.width, rectPath,
-			( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_FG, this->bgBuffer );
-		MainActivityDrawString( this, MeowPathToText(this->BootOptions[index].FilePath),
-			0, rectPath.y + DIM_ITEM_TEXT_Y_OFFSET, FALSE );
-	}
-	else if( update )
-		MainActivityDrawRect( this->Activity.buffer, this->Activity.width, rect,
-			( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_FG, this->bgBuffer );
-	
-	status = MainActivityDrawString( this, this->BootOptions[index].Description,
-		DIM_ITEM_TEXT_X_OFFSET, y + DIM_ITEM_TEXT_Y_OFFSET, reverse );
-	if( EFI_ERROR( status ) ) return status;
-	
-	if( update ){
-		ActivityInvalidate( ( ACTIVITY*)this, rect );
-		if( reverse ) ActivityInvalidate( ( ACTIVITY*)this, rectPath );
-	}
-	
-	return EFI_SUCCESS;
+STATIC
+EFI_STATUS
+MainActivityDrawBootOption (
+  IN  MAIN_ACTIVITY   *MainActivity,
+  IN  UINTN           Index,
+  IN  BOOLEAN         Reverse,
+  IN  BOOLEAN         Update
+  )
+{
+  EFI_STATUS  Status;
+  UINT32      PosY;
+  RECT        Rect;
+  RECT        RectPath;
+
+  //
+
+  PosY = MainActivity->BootOptionBaseY + DIM_ITEM_SEL_HEIGHT * (UINT32)Index;
+
+  Rect.PosX   = DIM_ITEM_SEL_H_OFFSET;
+  Rect.PosY   = PosY;
+  Rect.Width  = MainActivity->Activity.Width - 2 * DIM_ITEM_SEL_H_OFFSET;
+  Rect.Height = DIM_ITEM_SEL_HEIGHT;
+
+  if (Reverse) {
+
+    MainActivityDrawRect (
+      MainActivity->Activity.Buffer,
+      MainActivity->Activity.Width,
+      Rect,
+      (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_FG,
+      NULL
+      );
+
+    // Reversed measn selected, also draw boot path.
+
+    RectPath.PosX   = 0;//DIM_ITEM_SEL_H_OFFSET;
+    RectPath.PosY   = MainActivity->BootPathBaseY;
+    RectPath.Width  = MainActivity->Activity.Width;
+    RectPath.Height = DIM_ITEM_SEL_HEIGHT * 2;
+
+    MainActivityDrawRect (
+      MainActivity->Activity.Buffer,
+      MainActivity->Activity.Width,
+      RectPath,
+      (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_FG,
+      MainActivity->BgBuffer
+      );
+
+    MainActivityDrawString (
+      MainActivity,
+      MeowPathToText (MainActivity->BootOptions[Index].FilePath),
+      0,
+      RectPath.PosY + DIM_ITEM_TEXT_Y_OFFSET,
+      FALSE
+      );
+  }
+
+  else if (Update) {
+
+    MainActivityDrawRect (
+      MainActivity->Activity.Buffer,
+      MainActivity->Activity.Width,
+      Rect,
+      (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_FG,
+      MainActivity->BgBuffer
+      );
+  }
+
+  Status = MainActivityDrawString (
+              MainActivity,
+              MainActivity->BootOptions[Index].Description,
+              DIM_ITEM_TEXT_X_OFFSET,
+              PosY + DIM_ITEM_TEXT_Y_OFFSET,
+              Reverse
+              );
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if (Update) {
+
+    ActivityInvalidate ((ACTIVITY *)MainActivity, Rect);
+
+    if (Reverse) {
+
+      ActivityInvalidate ((ACTIVITY *)MainActivity, RectPath);
+    }
+  }
+
+  return EFI_SUCCESS;
 }
 
-UINT32 MainActivityStrCpy( CHAR16 *dst, CHAR16 *src, UINT32 dstOffset ){
-	for( UINT32 offset = 0; src[offset]; offset++ , dstOffset++ )
-		dst[dstOffset] = src[offset];
-	dst[dstOffset] = 0;
-	return dstOffset;
-}
-	
+STATIC
+UINT32
+MainActivityStrCpy (
+  OUT  CHAR16  *Dst,
+  IN   CHAR16  *Src,
+  IN   UINT32  DstOffset
+  )
+{
+  UINT32  Offset;
 
-EFI_STATUS MainActivityDrawTimerString( MAIN_ACTIVITY *this ){
-	CHAR16 line[256];
-	UINT32 offset = 0;
-	RECT rect;
-	rect.x = DIM_ITEM_SEL_H_OFFSET;
-	rect.y = this->BootAutoBaseY;
-	rect.w = this->Activity.width - 2 * DIM_ITEM_SEL_H_OFFSET;
-	rect.h = DIM_ITEM_SEL_HEIGHT;
-	
-	MainActivityDrawRect( this->Activity.buffer, this->Activity.width,
-		rect, ( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_BG, this->bgBuffer );
-	
-	offset = MainActivityStrCpy( line, this->staticTexts[3], offset );
-	offset += SprintUint( ( UINT32 ) this->TimerCount, line, offset );
-	MainActivityStrCpy( line, this->staticTexts[4], offset );
-	MainActivityDrawString( this, line, DIM_ITEM_TEXT_X_OFFSET,
-		rect.y + DIM_ITEM_TEXT_Y_OFFSET, FALSE );
-	
-	ActivityInvalidate(&this->Activity, rect );
-	return EFI_SUCCESS;
+  //
+
+  for (Offset = 0; Src[Offset]; Offset++, DstOffset++ ) {
+    Dst[DstOffset] = Src[Offset];
+  }
+
+  Dst[DstOffset] = 0;
+
+  return DstOffset;
 }
 
-//EFI_STATUS MainActivitySetTimer( MAIN_ACTIVITY *this ){
-	//EFI_EVENT ev = this->Activity.events[1];
+STATIC
+EFI_STATUS
+MainActivityDrawTimerString (
+  IN  MAIN_ACTIVITY   *MainActivity
+  )
+{
+  CHAR16  Line[256];
+  UINT32  Offset;
+  RECT    Rect;
 
-EFI_STATUS newMainActivity( IN UINT32 width, IN UINT32 height, OUT ACTIVITY** Activity ){
-	EFI_STATUS status = gBS->AllocatePool( EfiLoaderData, sizeof( MAIN_ACTIVITY ), Activity );
-	//Activity = ( MAIN_ACTIVITY*)malloc();
-	if( EFI_ERROR( status ) )return status;
-	
-	ACTIVITY *super = ( ACTIVITY* ) *Activity;
-	super->onStart = MainActivityOnStart;
-	super->onEnd = MainActivityOnEnd;
-	super->onEvent = MainActivityOnEvent;
-	super->isNonFullScreen = FALSE;
-	
-	// Super init.
-	status = ActivityInitialize( super, width, height );
-	if( EFI_ERROR( status ) ) return status;
-	
-	// This init.
-	MAIN_ACTIVITY *this = ( MAIN_ACTIVITY*)super;
-	
-	// Allocate memory for background buffer.
-	status = gBS->AllocatePool( EfiLoaderData, sizeof( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )*width*height, &this->bgBuffer );
-	if( EFI_ERROR( status ) ) return status;
-	
-	// Init text resouces. Not using res file for now.
-	this->staticTexts[0] = L"Meow Boot Menu";
-	this->staticTexts[1] = L"System efi boot options:";
-	this->staticTexts[2] = L"Boot failed.";
-	this->staticTexts[3] = L"Auto booting in ";
-	this->staticTexts[4] = L" second( s ).";
-	
-	// Fill bg buffer.
-	EFI_GRAPHICS_OUTPUT_BLT_PIXEL color = COLOR_BG;
-	RECT rect = {0, 0, 0, 0};
-	rect.w = width;
-	rect.h = height;
-	MainActivityDrawRect( this->bgBuffer, width, rect, color, NULL );
-	rect.x = DIM_ITEM_SEL_H_OFFSET;
-	rect.w = width - DIM_ITEM_SEL_H_OFFSET * 2;
-	rect.y = DIM_TITLE_Y_OFFSET;
-	rect.h = DIM_TITLE_Y_OFFSET;
-	color = ( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_FG;
-	MainActivityDrawRect( this->bgBuffer, width, rect, color, NULL );
-	
-	return status;
+  //
+
+  Offset = 0;
+
+  Rect.PosX   = DIM_ITEM_SEL_H_OFFSET;
+  Rect.PosY   = MainActivity->BootAutoBaseY;
+  Rect.Width  = MainActivity->Activity.Width - 2 * DIM_ITEM_SEL_H_OFFSET;
+  Rect.Height = DIM_ITEM_SEL_HEIGHT;
+
+  MainActivityDrawRect (
+    MainActivity->Activity.Buffer,
+    MainActivity->Activity.Width,
+    Rect,
+    (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_BG,
+    MainActivity->BgBuffer
+    );
+
+  Offset  = MainActivityStrCpy (Line, MainActivity->StaticTexts[3], Offset);
+  Offset += SprintUint ((UINT32)MainActivity->TimerCount, Line, Offset);
+
+  MainActivityStrCpy (Line, MainActivity->StaticTexts[4], Offset);
+
+  MainActivityDrawString (
+    MainActivity,
+    Line,
+    DIM_ITEM_TEXT_X_OFFSET,
+    Rect.PosY + DIM_ITEM_TEXT_Y_OFFSET,
+    FALSE
+    );
+
+  ActivityInvalidate (&MainActivity->Activity, Rect);
+
+  return EFI_SUCCESS;
 }
 
-void MainActivityOnStart( ACTIVITY *this ){
-	UINT32 base = 0;
-	MAIN_ACTIVITY *thiz = ( MAIN_ACTIVITY*) this;
-	for( UINT32 y = 0; y < this->height; y++ ){
-		for( UINT32 x = 0; x < this->width; x++ )
-			this->buffer[base + x] = thiz->bgBuffer[base + x];
-		base += this->width;
-	}
-	
-	EfiBootManagerConnectAll();
-	EfiBootManagerRefreshAllBootOption();
-	 
-	thiz->BootOptions = EfiBootManagerGetLoadOptions(&thiz->BootOptionCount, LoadOptionTypeBoot );
-	
-	
-	thiz->BootOptionBaseY = DIM_TITLE_Y_OFFSET + 2 * DIM_ITEM_SEL_HEIGHT + 3 * DIM_PARA_SEP;
-	thiz->BootFailedBaseY = thiz->BootOptionBaseY + DIM_PARA_SEP +
-		DIM_ITEM_SEL_HEIGHT * ( UINT32 ) thiz->BootOptionCount;
-	thiz->BootAutoBaseY = thiz->BootFailedBaseY + DIM_ITEM_SEL_HEIGHT + DIM_PARA_SEP;
-	thiz->IfShowBootFailed = FALSE;
-	thiz->BootPathBaseY = thiz->BootAutoBaseY + DIM_ITEM_SEL_HEIGHT + DIM_PARA_SEP * 2;
-	
-	MainActivityDrawString( thiz, thiz->staticTexts[0], DIM_ITEM_TEXT_X_OFFSET, 
-		DIM_TITLE_Y_OFFSET + DIM_ITEM_TEXT_Y_OFFSET, TRUE );
-	MainActivityDrawString( thiz, thiz->staticTexts[1], DIM_ITEM_SEL_H_OFFSET,
-		DIM_TITLE_Y_OFFSET + DIM_ITEM_SEL_HEIGHT + 2 * DIM_PARA_SEP + DIM_ITEM_TEXT_Y_OFFSET,
-		FALSE );
-	
-	if( thiz->BootOptionCount > 0 )
-		MainActivityDrawBootOption( thiz, 0, TRUE, FALSE );
-	
-	for( UINTN i = 1; i < thiz->BootOptionCount; i++ )
-		 MainActivityDrawBootOption( thiz, i, FALSE, FALSE );
-	
-	thiz->selection = 0;
-	
-	RECT rect = {0, 0, 0, 0};
-	rect.w = this->width;
-	rect.h = this->height;
-	ActivityInvalidate( this, rect );
-	
-	thiz->TimerCount = 5;
-	this->events[0] = GetKeyWaitor();
-	EFI_STATUS status = GetOneSecWaitor( &this->events[1]);
-	if( EFI_ERROR( status ) )
-		this->evCount = 1;
-	else{
-		this->evCount = 2;
-		MainActivityDrawTimerString( thiz );
-		this->countInvalid = 1;
-	}
+EFI_STATUS
+NewMainActivity (
+  IN   UINT32     Width,
+  IN   UINT32     Height,
+  OUT  ACTIVITY   **Activity
+  )
+{
+  EFI_STATUS                      Status;
+  ACTIVITY                        *Super;
+  MAIN_ACTIVITY                   *MainActivity;
+  RECT                            Rect = {0};
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Color;
+
+  //
+
+  *Activity = AllocateZeroPool (sizeof (MAIN_ACTIVITY));
+
+  if (*Activity == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  Super = (ACTIVITY *)*Activity;
+
+  //Super->IsNonFullScreen = FALSE;
+
+  // Super init.
+  Status = ActivityInitialize (Super, Width, Height);
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  // This init.
+  MainActivity = (MAIN_ACTIVITY *)Super;
+
+  MainActivity->Width   = Width;
+  MainActivity->Height  = Height;
+
+  // Allocate memory for background Buffer.
+
+  MainActivity->BgBuffer = AllocatePool (sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * Width * Height);
+
+  if (MainActivity->BgBuffer == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  // Init text resouces. Not using res file for now.
+  MainActivity->StaticTexts[0] = L"Meow Boot Menu";
+  MainActivity->StaticTexts[1] = L"System efi boot options:";
+  MainActivity->StaticTexts[2] = L"Boot failed.";
+  MainActivity->StaticTexts[3] = L"Auto booting in ";
+  MainActivity->StaticTexts[4] = L" second(s).";
+
+  // Fill bg Buffer.
+
+  Rect.Width  = Width;
+  Rect.Height = Height;
+
+  Color = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_BG;
+
+  MainActivityDrawRect (MainActivity->BgBuffer, Width, Rect, Color, NULL);
+
+  Rect.PosX   = DIM_ITEM_SEL_H_OFFSET;
+  Rect.Width  = Width - DIM_ITEM_SEL_H_OFFSET * 2;
+  Rect.PosY   = DIM_TITLE_Y_OFFSET;
+  Rect.Height = DIM_TITLE_Y_OFFSET;
+
+  Color = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_FG;
+
+  MainActivityDrawRect (MainActivity->BgBuffer, Width, Rect, Color, NULL);
+
+  return Status;
 }
 
-void MainActivityOnEnd( ACTIVITY *this ){
-	//
+VOID
+MainActivityOnStart (
+  IN OUT  ACTIVITY  *Activity
+  )
+{
+  UINT32          y;
+  UINT32          x;
+  UINTN           i;
+  UINT32          Base;
+  MAIN_ACTIVITY   *MainActivity;
+  RECT            Rect = {0};
+
+  //
+
+  Base = 0;
+
+  MainActivity = (MAIN_ACTIVITY *)Activity;
+
+  for (y = 0; y < Activity->Height; y++) {
+
+    for (x = 0; x < Activity->Width; x++) {
+      Activity->Buffer[Base + x] = MainActivity->BgBuffer[Base + x];
+    }
+
+    Base += Activity->Width;
+  }
+
+  EfiBootManagerConnectAll ();
+  EfiBootManagerRefreshAllBootOption ();
+
+  MainActivity->BootOptions       = EfiBootManagerGetLoadOptions (&MainActivity->BootOptionCount, LoadOptionTypeBoot);
+
+  MainActivity->BootOptionBaseY   = DIM_TITLE_Y_OFFSET + 2 * DIM_ITEM_SEL_HEIGHT + 3 * DIM_PARA_SEP;
+  MainActivity->BootFailedBaseY   = MainActivity->BootOptionBaseY + DIM_PARA_SEP + DIM_ITEM_SEL_HEIGHT * (UINT32)MainActivity->BootOptionCount;
+  MainActivity->BootAutoBaseY     = MainActivity->BootFailedBaseY + DIM_ITEM_SEL_HEIGHT + DIM_PARA_SEP;
+  MainActivity->IfShowBootFailed  = FALSE;
+  MainActivity->BootPathBaseY     = MainActivity->BootAutoBaseY + DIM_ITEM_SEL_HEIGHT + DIM_PARA_SEP * 2;
+
+  MainActivityDrawString (
+    MainActivity,
+    MainActivity->StaticTexts[0],
+    DIM_ITEM_TEXT_X_OFFSET,
+    DIM_TITLE_Y_OFFSET + DIM_ITEM_TEXT_Y_OFFSET,
+    TRUE
+    );
+
+  MainActivityDrawString (
+    MainActivity,
+    MainActivity->StaticTexts[1],
+    DIM_ITEM_SEL_H_OFFSET,
+    DIM_TITLE_Y_OFFSET + DIM_ITEM_SEL_HEIGHT + 2 * DIM_PARA_SEP + DIM_ITEM_TEXT_Y_OFFSET,
+    FALSE
+    );
+
+  if (MainActivity->BootOptionCount > 0) {
+    MainActivityDrawBootOption (MainActivity, 0, TRUE, FALSE);
+  }
+
+  for (i = 1; i < MainActivity->BootOptionCount; i++) {
+    MainActivityDrawBootOption (MainActivity, i, FALSE, FALSE);
+  }
+
+  MainActivity->Selection = 0;
+
+  Rect.Width = Activity->Width;
+  Rect.Height = Activity->Height;
+
+  ActivityInvalidate (Activity, Rect);
+
+  MainActivity->TimerCount = TIMER_COUNT;
+
+  MainActivityDrawTimerString (MainActivity);
+
+  Activity->CountInvalid = 1;
 }
 
-inline void moveDown( MAIN_ACTIVITY* this ){
-	if( this->BootOptionCount > 0 ){
-		MainActivityDrawBootOption( this, this->selection, FALSE, TRUE );
-		this->selection++ ;
-		if( this->selection >= this->BootOptionCount ) this->selection = 0;
-		MainActivityDrawBootOption( this, this->selection, TRUE, TRUE );
-	}
+STATIC
+VOID
+MainActivityOnMoveDown (
+  IN OUT  MAIN_ACTIVITY   *MainActivity
+  )
+{
+  if (MainActivity->BootOptionCount > 0) {
+
+    MainActivityDrawBootOption (MainActivity, MainActivity->Selection, FALSE, TRUE);
+
+    MainActivity->Selection++ ;
+
+    if (MainActivity->Selection >= MainActivity->BootOptionCount) {
+      MainActivity->Selection = 0;
+    }
+
+    MainActivityDrawBootOption (MainActivity, MainActivity->Selection, TRUE, TRUE);
+  }
 }
 
-inline void moveUp( MAIN_ACTIVITY* this ){
-	if( this->BootOptionCount > 0 ){
-		MainActivityDrawBootOption( this, this->selection, FALSE, TRUE );
-		if( this->selection == 0 ) this->selection = this->BootOptionCount - 1;
-		else this->selection--;
-		MainActivityDrawBootOption( this, this->selection, TRUE, TRUE );
-	}
+STATIC
+VOID
+MainActivityOnMoveUp (
+  IN OUT  MAIN_ACTIVITY   *MainActivity
+  )
+{
+  if (MainActivity->BootOptionCount > 0) {
+
+    MainActivityDrawBootOption (MainActivity, MainActivity->Selection, FALSE, TRUE);
+
+    if (MainActivity->Selection == 0) {
+      MainActivity->Selection = MainActivity->BootOptionCount - 1;
+    }
+
+    else {
+      MainActivity->Selection--;
+    }
+
+    MainActivityDrawBootOption (MainActivity, MainActivity->Selection, TRUE, TRUE);
+  }
 }
 
-inline void onEnter( MAIN_ACTIVITY* this ){
-	EfiBootManagerBoot(&this->BootOptions[this->selection]);
-	ACTIVITY* super = ( ACTIVITY*) this;
-	RECT rect;
-	rect.x = DIM_ITEM_SEL_H_OFFSET;
-	rect.y = this->BootFailedBaseY;
-	rect.w = super->width - 2 * DIM_ITEM_SEL_H_OFFSET;
-	rect.h = DIM_ITEM_SEL_HEIGHT;
-	MainActivityDrawString( this, this->staticTexts[2], rect.x,
-		rect.y + DIM_ITEM_TEXT_Y_OFFSET, FALSE );
-	
-	rect.x = 0;
-	rect.y = 0;
-	rect.w = super->width;
-	rect.h = super->height;
-	ActivityInvalidate( super, rect );
-	this->IfShowBootFailed = TRUE;
+STATIC
+VOID
+MainActivityOnExit (
+  IN OUT  MAIN_ACTIVITY   *MainActivity,
+  IN      BOOLEAN         IsBoot
+  )
+{
+  ClearScreen ((EFI_GRAPHICS_OUTPUT_BLT_PIXEL)BLACK_BG);
+
+  FreePool ((VOID *)MainActivity->BgBuffer);
+
+  if (IsBoot) {
+
+    EfiBootManagerBoot (&MainActivity->BootOptions[MainActivity->Selection]);
+  }
+
+  EfiBootManagerFreeLoadOptions (MainActivity->BootOptions, MainActivity->BootOptionCount);
+
+  FreeActivity ();
 }
 
-void MainActivityClearTimer( MAIN_ACTIVITY *this ){
-	CancelTimer(&this->Activity.events[1]);
-	this->Activity.evCount = 1;
-	
-	RECT rect;
-	rect.x = DIM_ITEM_SEL_H_OFFSET;
-	rect.y = this->BootAutoBaseY;
-	rect.w = this->Activity.width - 2 * DIM_ITEM_SEL_H_OFFSET;
-	rect.h = DIM_ITEM_SEL_HEIGHT;
-	
-	MainActivityDrawRect( this->Activity.buffer, this->Activity.width,
-		rect, ( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )COLOR_BG, this->bgBuffer );
-	ActivityInvalidate(&this->Activity, rect );
+STATIC
+VOID
+MainActivityOnEnter (
+  IN OUT  MAIN_ACTIVITY   *MainActivity
+  )
+{
+  MainActivityOnExit (MainActivity, TRUE);
 }
 
-void onKey( MAIN_ACTIVITY *this, EFI_INPUT_KEY key ){
-	ACTIVITY* super = ( ACTIVITY* ) this;
-	MainActivityClearTimer( this );
-	RECT rect;
-	rect.x = DIM_ITEM_SEL_H_OFFSET;
-	rect.y = this->BootFailedBaseY;
-	rect.w = super->width - 2 * DIM_ITEM_SEL_H_OFFSET;
-	rect.h = DIM_ITEM_SEL_HEIGHT;
-	if( this->IfShowBootFailed ){
-		MainActivityDrawRect( super->buffer, super->width, rect,
-			( EFI_GRAPHICS_OUTPUT_BLT_PIXEL ) COLOR_BG, this->bgBuffer );
-		ActivityInvalidate( super, rect );
-		this->IfShowBootFailed = FALSE;
-	}
-	switch( key.ScanCode ){
-		case SCAN_UP:
-			moveUp( this );
-			return;
-		case SCAN_DOWN:
-			moveDown( this );
-			return;
-		case SCAN_NULL:
-			break;
-		default:
-			return;
-	}
-	switch( key.UnicodeChar ){
-		case CHAR_LINEFEED:
-		case CHAR_CARRIAGE_RETURN:
-			onEnter( this );
-			break;
-	}
+STATIC
+VOID
+MainActivityOnEscape (
+  IN OUT  MAIN_ACTIVITY   *MainActivity
+  )
+{
+  MainActivityOnExit (MainActivity, FALSE);
 }
 
-void MainActivityOnEvent( ACTIVITY *this ){
-	EFI_STATUS status;
-	switch( this->evIndex ){
-		case 0:{
-				EFI_INPUT_KEY key;
-				status = GetKey( &key );
-				if( EFI_ERROR( status ) ) break;
-				onKey( ( MAIN_ACTIVITY* ) this, key );
-			}
-			break;
-		case 1:{
-				MAIN_ACTIVITY *thiz = ( MAIN_ACTIVITY* ) this;
-				if( thiz->TimerCount > 1 ){
-					thiz->TimerCount--;
-					MainActivityDrawTimerString( thiz );
-					//GetOneSecWaitor( this->events[1]);
-				}else{
-					MainActivityClearTimer( thiz );
-					onEnter( thiz );
-				}
-			}
-			break;
-		default:
-			break;
-	}
-	this->evIndex = 255;
+STATIC
+VOID
+MainActivityOnTimeout (
+  IN OUT  MAIN_ACTIVITY   *MainActivity
+  )
+{
+  RECT Rect;
+
+  //
+
+  Rect.PosX   = DIM_ITEM_SEL_H_OFFSET;
+  Rect.PosY   = MainActivity->BootAutoBaseY;
+  Rect.Width  = MainActivity->Activity.Width - 2 * DIM_ITEM_SEL_H_OFFSET;
+  Rect.Height = DIM_ITEM_SEL_HEIGHT;
+
+  MainActivityDrawRect (
+    MainActivity->Activity.Buffer,
+    MainActivity->Activity.Width,
+    Rect,
+    (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_BG,
+    MainActivity->BgBuffer
+    );
+
+  ActivityInvalidate (&MainActivity->Activity, Rect);
+}
+
+STATIC
+UINT32
+MainActivityOnKey (
+  IN OUT  MAIN_ACTIVITY   *MainActivity,
+  IN      EFI_INPUT_KEY   Key
+  )
+{
+  ACTIVITY  *Super;
+  RECT      Rect;
+  UINT32    Ret;
+
+  //
+
+  Ret = 0;
+
+  MainActivity->TimerCount = -2;
+
+  MainActivityOnTimeout (MainActivity);
+
+  Super = (ACTIVITY *)MainActivity;
+
+  Rect.PosX   = DIM_ITEM_SEL_H_OFFSET;
+  Rect.PosY   = MainActivity->BootFailedBaseY;
+  Rect.Width  = Super->Width - 2 * DIM_ITEM_SEL_H_OFFSET;
+  Rect.Height = DIM_ITEM_SEL_HEIGHT;
+
+  if (MainActivity->IfShowBootFailed) {
+
+    MainActivityDrawRect (
+      Super->Buffer,
+      Super->Width,
+      Rect,
+      (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)COLOR_BG,
+      MainActivity->BgBuffer
+      );
+
+    ActivityInvalidate (Super, Rect);
+
+    MainActivity->IfShowBootFailed = FALSE;
+  }
+
+  switch (Key.ScanCode) {
+
+    case SCAN_UP:
+      MainActivityOnMoveUp (MainActivity);
+      break;
+
+    case SCAN_DOWN:
+      MainActivityOnMoveDown (MainActivity);
+      break;
+
+    case SCAN_ESC:
+      Ret = 1;
+      break;
+
+    case SCAN_NULL:
+    default:
+      break;
+  }
+
+  if (Key.ScanCode == SCAN_NULL) {
+
+    switch (Key.UnicodeChar) {
+
+      case CHAR_LINEFEED:
+      case CHAR_CARRIAGE_RETURN:
+        MainActivityOnEnter (MainActivity);
+        break;
+    }
+  }
+
+  return Ret;
+}
+
+UINT32
+MainActivityOnEvent (
+  IN OUT  ACTIVITY    *Activity
+  )
+{
+  EFI_STATUS      Status;
+  MAIN_ACTIVITY   *MainActivity;
+  EFI_INPUT_KEY   Key;
+  EFI_EVENT       TimeoutEvent;
+
+  //
+
+  MainActivity = (MAIN_ACTIVITY *)Activity;
+
+  if (MainActivity->TimerCount >= -1) {
+
+    MainActivityDrawTimerString (MainActivity);
+
+    if (MainActivity->TimerCount == -1) {
+
+      MainActivityOnEnter (MainActivity);
+    }
+
+    MainActivity->TimerCount--;
+  }
+
+  TimeoutEvent  = NULL;
+  Status        = gBS->CreateEvent (EVT_TIMER, 0, NULL, NULL, &TimeoutEvent);
+
+  if (!EFI_ERROR (Status)) {
+
+    BOOLEAN   IsOnKey;
+
+    //
+
+    IsOnKey = FALSE;
+
+    gBS->SetTimer (TimeoutEvent, TimerRelative, 10000000);
+
+    while (EFI_ERROR (gBS->CheckEvent (TimeoutEvent))) {
+
+      Status = gST->ConIn->ReadKeyStroke (gST->ConIn, &Key);
+
+      if (!EFI_ERROR (Status)) {
+
+        IsOnKey = TRUE;
+
+        break;
+      }
+    }
+
+    Status = gBS->SetTimer (TimeoutEvent, TimerCancel, 0);
+
+    if (!EFI_ERROR (Status)) {
+
+      Status = gBS->CloseEvent (TimeoutEvent);
+    }
+
+    if (IsOnKey) {
+
+      return MainActivityOnKey (MainActivity, Key);
+    }
+  }
+
+  return 0;
 }

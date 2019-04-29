@@ -1,229 +1,292 @@
 #include <Uefi.h>
-#include <Library/UefiBootServicesTableLib.h>
+
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/SimplePointer.h>
 #include <Protocol/SimpleTextInEx.h>
 #include <Protocol/HiiFont.h>
 #include <Protocol/DevicePathToText.h>
+
+#include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiLib.h>
+
 #include "Activity.h"
 #include "MainActivity.h"
 #include "MeowFunctions.h"
 
 ///////////////
 
-UINT32				IsRunning;
+STATIC UINT32                            gIsRunning          = 0;
 
-EFI_SYSTEM_TABLE	*SysTable;
+STATIC ACTIVITY                          *gTopActivity       = NULL;
 
-EFI_HANDLE			EscHandle;
+STATIC EFI_GRAPHICS_OUTPUT_PROTOCOL      *gGraphProtocol     = NULL;
 
-ACTIVITY			*TopActivity;
+STATIC EFI_HII_FONT_PROTOCOL             *gFontProtocol      = NULL;
 
-EFI_GRAPHICS_OUTPUT_PROTOCOL *GraphProtocol;
-
-EFI_HII_FONT_PROTOCOL *FontProtocol;
-
-EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *PathConvProtocol;
+STATIC EFI_DEVICE_PATH_TO_TEXT_PROTOCOL  *gPathConvProtocol  = NULL;
 
 ///////////////
 
-EFI_STATUS EscNotify( EFI_KEY_DATA *key );
+UINT32
+SprintUint (
+  IN   UINT32   Decimal,
+  OUT  CHAR16   *Buffer,
+  IN   UINT32   Offset
+  )
+{
+  CHAR16  Tmp[10];
+  UINT32  MaxVal;
+  UINT32  i;
 
-EFI_STATUS Loop();
+  //
+
+  MaxVal = 0;
+
+  for (i = 0; 0 != Decimal; i++) {
+
+    UINT32  Digit;
+
+    //
+
+    Digit = Decimal % 10;
+
+    Tmp[i] = (CHAR16)('0' + Digit);
+    Decimal = Decimal / 10;
+
+    // Trust the compiler it would optimize :)
+
+    if (Digit != 0) {
+      MaxVal = i + 1;
+    }
+  }
+
+  for (i = 0; i < MaxVal; i++) {
+    Buffer[Offset + i] = Tmp[MaxVal - i - 1];
+  }
+
+  if (MaxVal == 0) {
+    Buffer[Offset] = '0';
+    return 1;
+  }
+
+  return MaxVal;
+}
+
+UINT32
+Max (
+  IN  UINT32  One,
+  IN  UINT32  Another
+  )
+{
+  return (One > Another) ? One : Another;
+}
+
+VOID
+Log (
+  IN  CHAR16   *Text
+  )
+{
+  gST->ConOut->OutputString (gST->ConOut, Text);
+}
+
+EFI_STATUS
+DrawLines (
+  IN   CHAR16                  *String,
+  IN   EFI_FONT_DISPLAY_INFO   *FontDisplayInfo,
+  OUT  EFI_IMAGE_OUTPUT        *ImageOutput,
+  IN   UINTN                   PosX,
+  IN   UINTN                   PosY
+  )
+{
+  return gFontProtocol->StringToImage (
+                          gFontProtocol,
+                          EFI_HII_OUT_FLAG_TRANSPARENT,
+                          String,
+                          FontDisplayInfo,
+                          &ImageOutput,
+                          PosX,
+                          PosY,
+                          NULL,
+                          NULL,
+                          NULL
+                          );
+}
+
+CHAR16 *
+MeowPathToText (
+  IN  EFI_DEVICE_PATH_PROTOCOL  *Path
+  )
+{
+  if (gPathConvProtocol != NULL) {
+    return gPathConvProtocol->ConvertDevicePathToText (Path, TRUE, TRUE);
+  }
+
+  return NULL;
+}
+
+VOID
+ClearScreen (
+  IN  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Color
+  )
+{
+  if (gGraphProtocol != NULL) {
+
+    gGraphProtocol->Blt (
+                      gGraphProtocol,
+                      &Color,
+                      EfiBltVideoFill,
+                      0,
+                      0,
+                      0,
+                      0,
+                      gGraphProtocol->Mode->Info->HorizontalResolution,
+                      gGraphProtocol->Mode->Info->VerticalResolution,
+                      0
+                      );
+  }
+}
+
+EFI_STATUS
+Loop (
+  VOID
+  )
+{
+  EFI_STATUS Status;
+
+  while (TRUE) {
+
+    if (gTopActivity == NULL) {
+      Log (L"gTopActivity == NULL\n");
+      return EFI_SUCCESS;
+    }
+
+    gIsRunning = MainActivityOnEvent (gTopActivity);
+
+    // ESC pressed
+
+    if (gIsRunning == 1) {
+      break;
+    }
+
+    Status = ActivityRender (gTopActivity, gGraphProtocol);
+
+    if (EFI_ERROR (Status)) {
+      Log (L"Cannot render Activity.\n");
+      return Status;
+    }
+  }
+
+  return EFI_SUCCESS;
+}
+
+VOID
+FreeActivity (
+  VOID
+  )
+{
+  if (gTopActivity != NULL) {
+
+    if (gTopActivity->Buffer != NULL) {
+
+      FreePool ((VOID *)gTopActivity->Buffer);
+    }
+
+    FreePool ((VOID *)gTopActivity);
+  }
+}
 
 ///////////////
 
-EFI_STATUS UefiMain( IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable ){
-	
-	EFI_STATUS				status;
-	UINT32					Width;
-	UINT32					Height;
-	CHAR16					Line[32];
-	UINT32					Tmp;
-	EFI_KEY_DATA			EscKey = { 0 };
-	
-	// Save for latter use.
-	SysTable = SystemTable;
-	
-	// Graphic access.
-	status = gBS->LocateProtocol( &gEfiGraphicsOutputProtocolGuid,
-		NULL, ( VOID **) &GraphProtocol
-	);
-	if( EFI_ERROR( status ) ){
-		// Well, if graphic's not available, where comes the shell?
-		Log( L"Cannot locate graphics output protocol.\r\n" );
-		return status;
-	}
-	
-	// Assuming screen size won't change.
-	// After all, this is just a boot menu.
-	Width = ( UINT32 ) GraphProtocol->Mode->Info->HorizontalResolution;
-	Height = ( UINT32 ) GraphProtocol->Mode->Info->VerticalResolution;
-	Log( L"Got resolution " );
-	Tmp = SprintUint( Width, Line, 0 );
-	Line[Tmp] = 'x';
-	Tmp++ ;
-	Tmp += SprintUint( Height, Line, Tmp );
-	Log( Line );
-	Log( L".\r\n" );
+EFI_STATUS
+EFIAPI
+UefiMain (
+  IN  EFI_HANDLE        ImageHandle,
+  IN  EFI_SYSTEM_TABLE  *SystemTable
+  )
+{
+  EFI_STATUS  Status;
+  UINT32      Width;
+  UINT32      Height;
+  //CHAR16      Line[32];
+  //UINT32      Tmp;
 
-	// Bind ESC key for exit.
-	// Why do we need this?
-	// Locate the protocol first.
-	EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL *inputProtocol;
-	status = gBS->LocateProtocol( &gEfiSimpleTextInputExProtocolGuid,
-		NULL, ( VOID **) &inputProtocol
-	);
-	if( EFI_ERROR( status ) ){
-		Log( L"Cannot locate input protocol.\r\n" );
-		return status;
-	}
-	EscKey.Key.ScanCode = SCAN_ESC;
-	
-	// Register notify.
-	status = inputProtocol->RegisterKeyNotify( inputProtocol, &EscKey,
-		EscNotify, ( VOID **) &EscHandle
-	);
-	if( EFI_ERROR( status ) ){
-		Log( L"Cannot bind esc key.\r\n" );
-		return status;
-	}
-	
-	Log( L"Bond esc key.\r\n" );
-	
-	// Locate font protocol, we use it to draw strings.
-	status = gBS->LocateProtocol( &gEfiHiiFontProtocolGuid, NULL, ( VOID **) &FontProtocol );
-	if( EFI_ERROR( status ) ){
-		Log( L"cannot locate font protocol.\r\n" );
-		return status;
-	}
-	
-	// 0 means running.
-	IsRunning = 0;
-	
-	// Create the Main Activity.
-	status = newMainActivity( Width, Height, &TopActivity );
-	if( EFI_ERROR( status ) ){
-		Log( L"Cannot allocate MainActivity.\r\n" );
-		return status;
-	}
-	
-	status = gBS->LocateProtocol( &gEfiDevicePathToTextProtocolGuid,
-		NULL, ( VOID **) &PathConvProtocol );
-	if( EFI_ERROR( status ) ){
-		Log( L"Cannot locate device path to text protocol." );
-		PathConvProtocol = NULL;
-	}
-	
-	// Start the Activity.
-	TopActivity->onStart( TopActivity );
-	
-	// Enter event loop.
-	Log( L"-> loop.\r\n" );
-	status = Loop();
-	Log( L"<- loop.\r\n" );
-	
-	// Unregister key notify.
-	inputProtocol->UnregisterKeyNotify( inputProtocol, EscHandle );
-	
-	// Log previous exception from event loop.
-	if( EFI_ERROR( status ) ){
-		Log( L"Cannot draw frame.\r\n");
-		return status;
-	}
-	
-	// Bye.
-	return EFI_SUCCESS;
-}
+  //
 
-UINT32 SprintUint( UINT32 Decimal, CHAR16 *Buffer, UINT32 Offset ){
-	CHAR16				Tmp[10];
-	UINT32				MaxVal;
-	
-	MaxVal = 0;
-	for( UINT32 i = 0; 0 != Decimal; i++ ){
-		UINT32 digit = Decimal % 10;
-		Tmp[i] = ( CHAR16 ) ( '0' + digit );
-		Decimal = Decimal / 10;
-		// Trust the compiler it would optimize:)
-		if( digit != 0 ) MaxVal=i+ 1;
-	}
-	for( UINT32 i = 0; i < MaxVal; i++ )
-		Buffer[Offset + i] = Tmp[MaxVal - i - 1];
-	if( MaxVal == 0 ){
-		Buffer[Offset] = '0';
-		return 1;
-	}
-	return MaxVal;
-}
+  // Graphic access.
 
-UINT32 Max( UINT32 One, UINT32 Another ){
-	return ( One > Another ) ? One : Another;
-}
+  Status = gBS->LocateProtocol (
+                  &gEfiGraphicsOutputProtocolGuid,
+                  NULL,
+                  (VOID **)&gGraphProtocol
+                  );
 
-void Log( IN CHAR16 *Text ){
-	SysTable->ConOut->OutputString( SysTable->ConOut, Text );
-}
+  if (EFI_ERROR (Status)) {
+    // Well, if graphic's not available, where comes the shell?
+    Log (L"Cannot locate graphics output protocol.\n");
+    return Status;
+  }
 
-EFI_STATUS DrawString( CHAR16 *string, const EFI_FONT_DISPLAY_INFO *fontDisplayInfo,
-	EFI_IMAGE_OUTPUT *imageOutput, UINTN x, UINTN y ){
-	return FontProtocol->StringToImage( FontProtocol,
-		EFI_HII_OUT_FLAG_CLIP | EFI_HII_OUT_FLAG_CLIP_CLEAN_X
-		| EFI_HII_OUT_FLAG_CLIP_CLEAN_Y | EFI_HII_IGNORE_LINE_BREAK | EFI_HII_OUT_FLAG_TRANSPARENT,
-		string, fontDisplayInfo, &imageOutput, x, y, NULL, NULL, NULL );
-}
+  // Assuming screen size won't change.
+  // After all, this is just a boot menu.
 
-EFI_STATUS DrawLines( CHAR16 *string, const EFI_FONT_DISPLAY_INFO *fontDisplayInfo,
-	EFI_IMAGE_OUTPUT *imageOutput, UINTN x, UINTN y ){
-	return FontProtocol->StringToImage( FontProtocol, EFI_HII_OUT_FLAG_TRANSPARENT,
-		string, fontDisplayInfo, &imageOutput, x, y, NULL, NULL, NULL );
-}
+  Width  = gGraphProtocol->Mode->Info->HorizontalResolution;
+  Height = gGraphProtocol->Mode->Info->VerticalResolution;
 
-EFI_EVENT GetKeyWaitor(){
-	return SysTable->ConIn->WaitForKey;
-}
+  /*
+  Log (L"Got resolution ");
 
-EFI_STATUS GetKey( EFI_INPUT_KEY *key ){
-	return SysTable->ConIn->ReadKeyStroke( SysTable->ConIn, key );
-}
+  Tmp = SprintUint (Width, Line, 0);
+  Line[Tmp] = 'x';
+  Tmp++ ;
+  Tmp += SprintUint (Height, Line, Tmp);
+  Log (Line);
+  Log (L".\n");
+  */
 
-EFI_STATUS GetOneSecWaitor( OUT EFI_EVENT *event ){
-	EFI_STATUS status = gBS->CreateEvent( EVT_TIMER, TPL_APPLICATION, ( EFI_EVENT_NOTIFY ) NULL,
-		( VOID*) NULL, event );
-	status = gBS->SetTimer( *event, TimerPeriodic, 10000000 );
-	return status;
-}
+  // Locate font protocol, we use it to draw strings.
 
-EFI_STATUS CancelTimer( EFI_EVENT *event ){
-	return gBS->SetTimer( *event, TimerCancel, 10000000 );
-}
+  Status = gBS->LocateProtocol (&gEfiHiiFontProtocolGuid, NULL, (VOID **)&gFontProtocol);
 
-CHAR16 *MeowPathToText( EFI_DEVICE_PATH_PROTOCOL *path ){
-	if( PathConvProtocol ) 
-		return PathConvProtocol->ConvertDevicePathToText( path, TRUE, TRUE );
-	return NULL;
-}
+  if (EFI_ERROR (Status)) {
+    Log (L"Cannot locate font protocol.\n");
+    return Status;
+  }
 
-EFI_STATUS Loop(){
-	EFI_STATUS status;
-	while( IsRunning == 0 ){
-		if( TopActivity == NULL ){
-			Log( L"TopActivity == NULL\r\n");
-			return EFI_SUCCESS;
-		}
-		//Now we only draw top most Activity.
-		TopActivity->onEvent( TopActivity );
-		status = ActivityRender( TopActivity, GraphProtocol );
-		if( EFI_ERROR( status ) ){
-			Log( L"Cannot render Activity.\r\n");
-			return status;
-		}
-		gBS->WaitForEvent( TopActivity->evCount, TopActivity->events, &TopActivity->evIndex );
-	}
-	return EFI_SUCCESS;
-}
+  // Create the Main Activity.
+  Status = NewMainActivity (Width, Height, &gTopActivity);
 
-EFI_STATUS EscNotify( EFI_KEY_DATA *key ){
-	IsRunning = 1;
-	return EFI_SUCCESS;
+  if (EFI_ERROR (Status)) {
+    Log (L"Cannot allocate MainActivity.\n");
+    return Status;
+  }
+
+  Status = gBS->LocateProtocol (
+                  &gEfiDevicePathToTextProtocolGuid,
+                  NULL,
+                  (VOID **)&gPathConvProtocol
+                  );
+
+  if (EFI_ERROR (Status)) {
+    Log (L"Cannot locate device path to text protocol.");
+    gPathConvProtocol = NULL;
+  }
+
+  // Start the Activity.
+  MainActivityOnStart (gTopActivity);
+
+  // Enter event loop.
+
+  //Log (L"-> loop.\n");
+  Status = Loop ();
+  //Log (L"<- loop.\n");
+
+  // Log previous exception from event loop.
+
+  if (EFI_ERROR (Status)) {
+    Log (L"Cannot draw frame.\n");
+    return Status;
+  }
+
+  // Bye.
+  return EFI_SUCCESS;
 }

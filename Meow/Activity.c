@@ -1,64 +1,135 @@
 #include "Activity.h"
 
-EFI_STATUS ActivityInitialize( ACTIVITY *this, UINT32 width, UINT32 height ){
-	EFI_STATUS status;
-	this->width = width;
-	this->height = height;
-	this->countInvalid = 0;
-	this->evCount = 0;
-	this->evIndex = 255;
-	status = gBS->AllocatePool( EfiLoaderData, sizeof( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )*width*height, &this->buffer );
-	//this->buffer = ( EFI_GRAPHICS_OUTPUT_BLT_PIXEL*)malloc();
-	return status;
+EFI_STATUS
+ActivityInitialize (
+  IN OUT  ACTIVITY  *Activity,
+  IN      UINT32    Width,
+  IN      UINT32    Height
+  )
+{
+  Activity->Width         = Width;
+  Activity->Height        = Height;
+  Activity->CountInvalid  = 0;
+  Activity->Buffer        = AllocatePool (sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL) * Width * Height);
+
+  return (Activity->Buffer != NULL) ? EFI_SUCCESS : EFI_OUT_OF_RESOURCES;
 }
 
-void ActivityInvalidate( ACTIVITY *this, RECT rect ){
-	//-1 means redraw whole Activity.
-	if( this->countInvalid == 0xff )return;
-	//Too many! Just redraw whole Activity.
-	if( this->countInvalid >= 64 ){
-		this->countInvalid = 0xff;
-		return;
-	}
-	//Check fully collapsed areas.
-	for( UINT8 i = 0; i < this->countInvalid; i++ ){
-		RECT curr = this->invalids[i];
-		if( curr.x <= rect.x && curr.y <= rect.y
-			&& curr.x + curr.w >= rect.x + rect.w && curr.y + curr.h >= rect.y + rect.h )
-				return;
-		if( curr.x > rect.x && curr.y > rect.y
-			&& curr.x + curr.w < rect.x + rect.w && curr.y + curr.h < rect.y + rect.h ){
-				this->invalids[i] = rect;
-				return;
-		}
-	}
-	this->invalids[this->countInvalid] = rect;
-	this->countInvalid++ ;
-	//Ignore partial-collapsed areas for now.
+VOID
+ActivityInvalidate (
+  IN OUT  ACTIVITY  *Activity,
+  IN      RECT      Rect
+  )
+{
+  UINT8   i;
+
+  //
+
+  // -1 means redraw whole Activity.
+  if (Activity->CountInvalid == 0xFF) {
+    return;
+  }
+
+  // Too many! Just redraw whole Activity.
+
+  if (Activity->CountInvalid >= 64) {
+    Activity->CountInvalid = 0xFF;
+    return;
+  }
+
+  // Check fully collapsed Areas.
+
+  for (i = 0; i < Activity->CountInvalid; i++) {
+
+    RECT  Curr;
+
+    //
+
+    Curr = Activity->Invalids[i];
+
+    if ((Curr.PosX <= Rect.PosX)
+      && (Curr.PosY <= Rect.PosY)
+      && ((Curr.PosX + Curr.Width) >= (Rect.PosX + Rect.Width))
+      && ((Curr.PosY + Curr.Height) >= (Rect.PosY + Rect.Height))
+      )
+    {
+      return;
+    }
+
+    if ((Curr.PosX > Rect.PosX)
+      && (Curr.PosY > Rect.PosY)
+      && ((Curr.PosX + Curr.Width) < (Rect.PosX + Rect.Width))
+      && ((Curr.PosY + Curr.Height) < (Rect.PosY + Rect.Height))
+      )
+    {
+      Activity->Invalids[i] = Rect;
+      return;
+    }
+  }
+
+  Activity->Invalids[Activity->CountInvalid] = Rect;
+  Activity->CountInvalid++ ;
+
+  // Ignore partial-collapsed areas for now.
 }
 
-EFI_STATUS ActivityRenderArea( ACTIVITY *this, EFI_GRAPHICS_OUTPUT_PROTOCOL *graphProtocol,
-		RECT area ){
-	return graphProtocol->Blt( graphProtocol, this->buffer, EfiBltBufferToVideo,
-		area.x, area.y, area.x, area.y, area.w, area.h,
-		this->width * sizeof( EFI_GRAPHICS_OUTPUT_BLT_PIXEL )
-	);
+STATIC
+EFI_STATUS
+ActivityRenderArea (
+  IN  ACTIVITY                      *Activity,
+  IN  EFI_GRAPHICS_OUTPUT_PROTOCOL  *GraphProtocol,
+  IN  RECT                          Area
+  )
+{
+  return GraphProtocol->Blt (
+                          GraphProtocol,
+                          Activity->Buffer,
+                          EfiBltBufferToVideo,
+                          Area.PosX,
+                          Area.PosY,
+                          Area.PosX,
+                          Area.PosY,
+                          Area.Width,
+                          Area.Height,
+                          Activity->Width * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
+                          );
 }
 
-EFI_STATUS ActivityRender( ACTIVITY *this, EFI_GRAPHICS_OUTPUT_PROTOCOL *graphProtocol ){
-	EFI_STATUS status;
-	if( this->countInvalid >= 64 ){
-		RECT rect;
-		rect.x = 0;
-		rect.y = 0;
-		rect.w = this->width;
-		rect.h = this->height;
-		return ActivityRenderArea( this, graphProtocol, rect );
-	}
-	for( UINT8 i = 0; i < this->countInvalid; i++ ){
-		status = ActivityRenderArea( this, graphProtocol, this->invalids[i]);
-		if( EFI_ERROR( status ) ) return status;
-	}
-	this->countInvalid = 0;
-	return EFI_SUCCESS;
+EFI_STATUS
+ActivityRender (
+  IN OUT  ACTIVITY                      *Activity,
+  IN      EFI_GRAPHICS_OUTPUT_PROTOCOL  *GraphProtocol
+  )
+{
+  EFI_STATUS  Status;
+  UINT8       i;
+
+  //
+
+  if (Activity->CountInvalid >= 64) {
+
+    RECT  Rect;
+
+    //
+
+    Rect.PosX   = 0;
+    Rect.PosY   = 0;
+    Rect.Width  = Activity->Width;
+    Rect.Height = Activity->Height;
+
+    return ActivityRenderArea (Activity, GraphProtocol, Rect);
+  }
+
+  for (i = 0; i < Activity->CountInvalid; i++) {
+
+    Status = ActivityRenderArea (Activity, GraphProtocol, Activity->Invalids[i]);
+
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
+  Activity->CountInvalid = 0;
+
+  return EFI_SUCCESS;
 }
