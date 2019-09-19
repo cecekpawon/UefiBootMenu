@@ -1,5 +1,5 @@
-#ifndef H_MEOW_MEOWFUNCTIONS
-#define H_MEOW_MEOWFUNCTIONS
+#ifndef MEOW_MEOWFUNCTIONS_H
+#define MEOW_MEOWFUNCTIONS_H
 
 #include <Protocol/DevicePath.h>
 
@@ -23,6 +23,7 @@ UINT32
 SprintUint (
   IN   UINT32   Decimal,
   OUT  CHAR16   *Buffer,
+  IN   UINT32   BufferSize,
   IN   UINT32   Offset
   );
 
@@ -37,4 +38,4 @@ MeowPathToText (
   IN  EFI_DEVICE_PATH_PROTOCOL  *Path
   );
 
-#endif
+#endif // MEOW_MEOWFUNCTIONS_H

@@ -15,8 +15,6 @@
 
 ///////////////
 
-STATIC UINT32                            gIsRunning          = 0;
-
 STATIC ACTIVITY                          *gTopActivity       = NULL;
 
 STATIC EFI_GRAPHICS_OUTPUT_PROTOCOL      *gGraphProtocol     = NULL;
@@ -31,6 +29,7 @@ UINT32
 SprintUint (
   IN   UINT32   Decimal,
   OUT  CHAR16   *Buffer,
+  IN   UINT32   BufferSize,
   IN   UINT32   Offset
   )
 {
@@ -41,6 +40,10 @@ SprintUint (
   //
 
   MaxVal = 0;
+
+  if (Buffer == NULL) {
+    return MaxVal;
+  }
 
   for (i = 0; 0 != Decimal; i++) {
 
@@ -60,12 +63,16 @@ SprintUint (
     }
   }
 
+  if (MaxVal >= (BufferSize - Offset - 1)) {
+    MaxVal = BufferSize - Offset - 1;
+  }
+
   for (i = 0; i < MaxVal; i++) {
     Buffer[Offset + i] = Tmp[MaxVal - i - 1];
   }
 
   if (MaxVal == 0) {
-    Buffer[Offset] = '0';
+    Buffer[Offset] = L'\0';
     return 1;
   }
 
@@ -151,7 +158,8 @@ Loop (
   VOID
   )
 {
-  EFI_STATUS Status;
+  EFI_STATUS  Status;
+  UINTN       IsRunning;
 
   while (TRUE) {
 
@@ -160,11 +168,11 @@ Loop (
       return EFI_SUCCESS;
     }
 
-    gIsRunning = MainActivityOnEvent (gTopActivity);
+    IsRunning = MainActivityOnEvent (gTopActivity);
 
     // ESC pressed
 
-    if (gIsRunning == 1) {
+    if (IsRunning != 0) {
       break;
     }
 
@@ -177,22 +185,6 @@ Loop (
   }
 
   return EFI_SUCCESS;
-}
-
-VOID
-FreeActivity (
-  VOID
-  )
-{
-  if (gTopActivity != NULL) {
-
-    if (gTopActivity->Buffer != NULL) {
-
-      FreePool ((VOID *)gTopActivity->Buffer);
-    }
-
-    FreePool ((VOID *)gTopActivity);
-  }
 }
 
 ///////////////
@@ -223,7 +215,7 @@ UefiMain (
   if (EFI_ERROR (Status)) {
     // Well, if graphic's not available, where comes the shell?
     Log (L"Cannot locate graphics output protocol.\n");
-    return Status;
+    goto Done;
   }
 
   // Assuming screen size won't change.
@@ -249,7 +241,7 @@ UefiMain (
 
   if (EFI_ERROR (Status)) {
     Log (L"Cannot locate font protocol.\n");
-    return Status;
+    goto Done;
   }
 
   // Create the Main Activity.
@@ -257,7 +249,7 @@ UefiMain (
 
   if (EFI_ERROR (Status)) {
     Log (L"Cannot allocate MainActivity.\n");
-    return Status;
+    goto Done;
   }
 
   Status = gBS->LocateProtocol (
@@ -269,6 +261,7 @@ UefiMain (
   if (EFI_ERROR (Status)) {
     Log (L"Cannot locate device path to text protocol.");
     gPathConvProtocol = NULL;
+    goto Done;
   }
 
   // Start the Activity.
@@ -284,9 +277,16 @@ UefiMain (
 
   if (EFI_ERROR (Status)) {
     Log (L"Cannot draw frame.\n");
-    return Status;
   }
 
+  FreeActivity (gTopActivity);
+
+  Done:
+
+  #if defined(MEOW_MODE) && (MEOW_MODE == APPLICATION)
+    Status = EFI_SUCCESS;
+  #endif
+
   // Bye.
-  return EFI_SUCCESS;
+  return Status;
 }

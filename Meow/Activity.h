@@ -1,5 +1,5 @@
-#ifndef __MEOW_ACTIVITY_H__
-#define __MEOW_ACTIVITY_H__
+#ifndef MEOW_ACTIVITY_H
+#define MEOW_ACTIVITY_H
 
 #include <Uefi.h>
 
@@ -7,6 +7,10 @@
 
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+
+#define BLACK_BG    { 0 }
+#define COLOR_BG    { 0xDD, 0x10, 0x10, 0x00 }
+#define COLOR_FG    { 0xFF, 0x79, 0x29, 0x00 }
 
 // Typedefs, struct declares.
 
@@ -40,11 +44,6 @@ ClearScreen (
   IN  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Color
 );
 
-VOID
-FreeActivity (
-  VOID
-  );
-
 // Struct defines.
 
 struct RECT {
@@ -55,7 +54,7 @@ struct RECT {
 };
 
 struct ACTIVITY {
-  ACTIVITY                        *Parent;
+  //ACTIVITY                        *Parent;
   //BOOLEAN                         IsNonFullScreen;
   UINT32                          Width;
   UINT32                          Height;
@@ -64,4 +63,4 @@ struct ACTIVITY {
   RECT                            Invalids[64];
 };
 
-#endif
+#endif // MEOW_ACTIVITY_H

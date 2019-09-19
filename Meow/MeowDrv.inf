@@ -1,0 +1,35 @@
+[Defines]
+  INF_VERSION     = 0x00010005
+  BASE_NAME       = Meow
+  FILE_GUID       = 6987936E-ED34-FFDB-AE97-1FA5E4ED2117
+  MODULE_TYPE     = UEFI_DRIVER
+  VERSION_STRING  = 0.1
+  ENTRY_POINT     = UefiMain
+
+[Sources]
+  Activity.c
+  MainActivity.c
+  Meow.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  MemoryAllocationLib
+  UefiDriverEntryPoint
+  UefiBootManagerLib
+  UefiBootServicesTableLib
+  UefiLib
+
+[Protocols]
+  gEfiDevicePathToTextProtocolGuid
+  gEfiGraphicsOutputProtocolGuid
+  gEfiHiiFontProtocolGuid
+  gEfiSimplePointerProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid
+
+[Depex]
+  gEfiGraphicsOutputProtocolGuid AND
+  gEfiSimpleTextInputExProtocolGuid

@@ -1,5 +1,5 @@
-#ifndef __MEOW_MAIN_ACTIVITY_H__
-#define __MEOW_MAIN_ACTIVITY_H__
+#ifndef MEOW_MAIN_ACTIVITY_H
+#define MEOW_MAIN_ACTIVITY_H
 
 #include "Activity.h"
 
@@ -7,6 +7,16 @@
 
 #include <Library/BaseMemoryLib.h>
 #include <Library/UefiBootManagerLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+
+#define DIM_ITEM_SEL_H_OFFSET     (40)
+#define DIM_ITEM_SEL_HEIGHT       (32)
+#define DIM_ITEM_TEXT_X_OFFSET    (80)
+#define DIM_ITEM_TEXT_Y_OFFSET    (8)
+#define DIM_PARA_SEP              (16)
+#define DIM_TITLE_Y_OFFSET        (40)
+
+#define TIMER_COUNT               (10)
 
 typedef struct {
   ACTIVITY                        Activity;
@@ -38,9 +48,14 @@ MainActivityOnStart (
   IN OUT  ACTIVITY  *Activity
   );
 
-UINT32
+UINTN
 MainActivityOnEvent (
   IN OUT  ACTIVITY  *Activity
   );
 
-#endif
+VOID
+FreeActivity (
+  IN OUT  ACTIVITY  *Activity
+  );
+
+#endif // MEOW_MAIN_ACTIVITY_H

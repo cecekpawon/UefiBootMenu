@@ -1,27 +1,45 @@
 #include "MainActivity.h"
 #include "MeowFunctions.h"
 
-#define BLACK_BG                  { 0 }
-#define COLOR_BG                  { 0xDD, 0x10, 0x10, 0x00 }
-#define COLOR_FG                  { 0xFF, 0x79, 0x29, 0x00 }
+VOID
+FreeActivity (
+  IN OUT  ACTIVITY   *Activity
+  )
+{
+  if (Activity != NULL) {
 
-#define DIM_ITEM_SEL_H_OFFSET     (40)
-#define DIM_ITEM_SEL_HEIGHT       (32)
-#define DIM_ITEM_TEXT_X_OFFSET    (80)
-#define DIM_ITEM_TEXT_Y_OFFSET    (8)
-#define DIM_PARA_SEP              (16)
-#define DIM_TITLE_Y_OFFSET        (40)
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL   *Buffer;
 
-#define TIMER_COUNT               (10)
+    //
+
+    Buffer = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)((MAIN_ACTIVITY *)Activity)->BgBuffer;
+
+    if (Buffer != NULL) {
+
+      FreePool (Buffer);
+    }
+
+    Buffer = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *)((MAIN_ACTIVITY *)Activity)->Activity.Buffer;
+
+    if (Buffer != NULL) {
+
+      FreePool (Buffer);
+    }
+
+    FreePool ((MAIN_ACTIVITY *)Activity);
+  }
+
+  ClearScreen ((EFI_GRAPHICS_OUTPUT_BLT_PIXEL)BLACK_BG);
+}
 
 STATIC
 VOID
 MainActivityDrawRect (
-  OUT  EFI_GRAPHICS_OUTPUT_BLT_PIXEL           *Buffer,
-  IN   UINT32                                  Width,
-  IN   RECT                                    Rect,
-  IN   EFI_GRAPHICS_OUTPUT_BLT_PIXEL           Color,
-  IN   EFI_GRAPHICS_OUTPUT_BLT_PIXEL           *Bg  OPTIONAL
+  OUT  EFI_GRAPHICS_OUTPUT_BLT_PIXEL    *Buffer,
+  IN   UINT32                           Width,
+  IN   RECT                             Rect,
+  IN   EFI_GRAPHICS_OUTPUT_BLT_PIXEL    Color,
+  IN   EFI_GRAPHICS_OUTPUT_BLT_PIXEL    *Bg  OPTIONAL
   )
 {
   UINT32  y;
@@ -177,6 +195,7 @@ STATIC
 UINT32
 MainActivityStrCpy (
   OUT  CHAR16  *Dst,
+  IN   UINT32   DstSize,
   IN   CHAR16  *Src,
   IN   UINT32  DstOffset
   )
@@ -185,11 +204,11 @@ MainActivityStrCpy (
 
   //
 
-  for (Offset = 0; Src[Offset]; Offset++, DstOffset++ ) {
+  for (Offset = 0; (DstOffset < DstSize) && (Src[Offset] != L'\0'); Offset++, DstOffset++ ) {
     Dst[DstOffset] = Src[Offset];
   }
 
-  Dst[DstOffset] = 0;
+  Dst[DstOffset] = L'\0';
 
   return DstOffset;
 }
@@ -221,10 +240,10 @@ MainActivityDrawTimerString (
     MainActivity->BgBuffer
     );
 
-  Offset  = MainActivityStrCpy (Line, MainActivity->StaticTexts[3], Offset);
-  Offset += SprintUint ((UINT32)MainActivity->TimerCount, Line, Offset);
+  Offset  = MainActivityStrCpy (Line, ARRAY_SIZE (Line), MainActivity->StaticTexts[3], Offset);
+  Offset += SprintUint ((UINT32)MainActivity->TimerCount, Line, ARRAY_SIZE (Line), Offset);
 
-  MainActivityStrCpy (Line, MainActivity->StaticTexts[4], Offset);
+  MainActivityStrCpy (Line, ARRAY_SIZE (Line), MainActivity->StaticTexts[4], Offset);
 
   MainActivityDrawString (
     MainActivity,
@@ -249,7 +268,7 @@ NewMainActivity (
   EFI_STATUS                      Status;
   ACTIVITY                        *Super;
   MAIN_ACTIVITY                   *MainActivity;
-  RECT                            Rect = {0};
+  RECT                            Rect = { 0 };
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Color;
 
   //
@@ -323,7 +342,7 @@ MainActivityOnStart (
   UINTN           i;
   UINT32          Base;
   MAIN_ACTIVITY   *MainActivity;
-  RECT            Rect = {0};
+  RECT            Rect = { 0 };
 
   //
 
@@ -340,7 +359,7 @@ MainActivityOnStart (
     Base += Activity->Width;
   }
 
-  EfiBootManagerConnectAll ();
+  //EfiBootManagerConnectAll ();
   EfiBootManagerRefreshAllBootOption ();
 
   MainActivity->BootOptions       = EfiBootManagerGetLoadOptions (&MainActivity->BootOptionCount, LoadOptionTypeBoot);
@@ -390,7 +409,7 @@ MainActivityOnStart (
 }
 
 STATIC
-VOID
+UINTN
 MainActivityOnMoveDown (
   IN OUT  MAIN_ACTIVITY   *MainActivity
   )
@@ -407,10 +426,12 @@ MainActivityOnMoveDown (
 
     MainActivityDrawBootOption (MainActivity, MainActivity->Selection, TRUE, TRUE);
   }
+
+  return 0;
 }
 
 STATIC
-VOID
+UINTN
 MainActivityOnMoveUp (
   IN OUT  MAIN_ACTIVITY   *MainActivity
   )
@@ -429,45 +450,54 @@ MainActivityOnMoveUp (
 
     MainActivityDrawBootOption (MainActivity, MainActivity->Selection, TRUE, TRUE);
   }
+
+  return 0;
 }
 
 STATIC
-VOID
+UINTN
 MainActivityOnExit (
   IN OUT  MAIN_ACTIVITY   *MainActivity,
   IN      BOOLEAN         IsBoot
   )
 {
-  ClearScreen ((EFI_GRAPHICS_OUTPUT_BLT_PIXEL)BLACK_BG);
-
-  FreePool ((VOID *)MainActivity->BgBuffer);
-
   if (IsBoot) {
+    UINT16  BootOrder;
 
-    EfiBootManagerBoot (&MainActivity->BootOptions[MainActivity->Selection]);
+    //
+
+    BootOrder = (UINT16)MainActivity->BootOptions[MainActivity->Selection].OptionNumber;
+
+    gRT->SetVariable (L"BootNext",
+                      &gEfiGlobalVariableGuid,
+                      EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,
+                      sizeof(UINT16),
+                      &BootOrder);
+
+    //EfiBootManagerBoot (&MainActivity->BootOptions[MainActivity->Selection]);
   }
 
   EfiBootManagerFreeLoadOptions (MainActivity->BootOptions, MainActivity->BootOptionCount);
 
-  FreeActivity ();
+  return 1;
 }
 
 STATIC
-VOID
+UINTN
 MainActivityOnEnter (
   IN OUT  MAIN_ACTIVITY   *MainActivity
   )
 {
-  MainActivityOnExit (MainActivity, TRUE);
+  return MainActivityOnExit (MainActivity, TRUE);
 }
 
 STATIC
-VOID
+UINTN
 MainActivityOnEscape (
   IN OUT  MAIN_ACTIVITY   *MainActivity
   )
 {
-  MainActivityOnExit (MainActivity, FALSE);
+  return MainActivityOnExit (MainActivity, FALSE);
 }
 
 STATIC
@@ -497,7 +527,7 @@ MainActivityOnTimeout (
 }
 
 STATIC
-UINT32
+UINTN
 MainActivityOnKey (
   IN OUT  MAIN_ACTIVITY   *MainActivity,
   IN      EFI_INPUT_KEY   Key
@@ -505,7 +535,7 @@ MainActivityOnKey (
 {
   ACTIVITY  *Super;
   RECT      Rect;
-  UINT32    Ret;
+  UINTN     Ret;
 
   //
 
@@ -540,18 +570,18 @@ MainActivityOnKey (
   switch (Key.ScanCode) {
 
     case SCAN_UP:
-      MainActivityOnMoveUp (MainActivity);
+      Ret = MainActivityOnMoveUp (MainActivity);
       break;
 
     case SCAN_DOWN:
-      MainActivityOnMoveDown (MainActivity);
+      Ret = MainActivityOnMoveDown (MainActivity);
       break;
 
     case SCAN_ESC:
-      Ret = 1;
+      Ret = MainActivityOnEscape (MainActivity);
       break;
 
-    case SCAN_NULL:
+    //case SCAN_NULL:
     default:
       break;
   }
@@ -562,7 +592,7 @@ MainActivityOnKey (
 
       case CHAR_LINEFEED:
       case CHAR_CARRIAGE_RETURN:
-        MainActivityOnEnter (MainActivity);
+        Ret = MainActivityOnEnter (MainActivity);
         break;
     }
   }
@@ -570,17 +600,20 @@ MainActivityOnKey (
   return Ret;
 }
 
-UINT32
+UINTN
 MainActivityOnEvent (
   IN OUT  ACTIVITY    *Activity
   )
 {
+  UINTN           Ret;
   EFI_STATUS      Status;
   MAIN_ACTIVITY   *MainActivity;
   EFI_INPUT_KEY   Key;
   EFI_EVENT       TimeoutEvent;
 
   //
+
+  Ret = 0;
 
   MainActivity = (MAIN_ACTIVITY *)Activity;
 
@@ -630,9 +663,9 @@ MainActivityOnEvent (
 
     if (IsOnKey) {
 
-      return MainActivityOnKey (MainActivity, Key);
+      Ret = MainActivityOnKey (MainActivity, Key);
     }
   }
 
-  return 0;
+  return Ret;
 }

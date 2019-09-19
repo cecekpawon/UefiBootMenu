@@ -20,20 +20,26 @@
 #
 ################################################################################
 [Defines]
-	PLATFORM_NAME                  = MeowPkg
-	PLATFORM_GUID                  = 1831FD51-282E-43F0-BD2C-1B526F790110
-	PLATFORM_VERSION               = 0.1
-	DSC_SPECIFICATION              = 0x00010005
-	OUTPUT_DIRECTORY               = Build/MeowPkg
-	SUPPORTED_ARCHITECTURES        = IA32|X64|ARM|AARCH64
-	BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
-	SKUID_IDENTIFIER               = DEFAULT
+  PLATFORM_NAME                  = MeowPkg
+  PLATFORM_GUID                  = 1831FD51-282E-43F0-BD2C-1B526F790110
+  PLATFORM_VERSION               = 0.1
+  DSC_SPECIFICATION              = 0x00010005
+  OUTPUT_DIRECTORY               = Build/MeowPkg
+  SUPPORTED_ARCHITECTURES        = IA32|X64|ARM|AARCH64
+  BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
+  SKUID_IDENTIFIER               = DEFAULT
 #
 #  Debug output control
 #
-	DEFINE DEBUG_ENABLE_OUTPUT      = FALSE       # Set to TRUE to enable debug output
-	DEFINE DEBUG_PRINT_ERROR_LEVEL  = 0x80000040  # Flags to control amount of debug output
-	DEFINE DEBUG_PROPERTY_MASK      = 0
+  !if $(TARGET) == RELEASE
+    DEFINE DEBUG_ENABLE_OUTPUT      = FALSE         # Set to TRUE to enable debug output
+  !else
+    DEFINE DEBUG_ENABLE_OUTPUT      = TRUE
+    DEFINE DEBUG_PRINT_ERROR_LEVEL  = 0x80000040    # Flags to control amount of debug output
+    DEFINE DEBUG_PROPERTY_MASK      = 0
+  !endif
+
+  DEFINE MEOW_MODE                  = APPLICATION   # APPLICATION|DRIVER
 
 
 ################################################################################
@@ -42,8 +48,8 @@
 #
 ################################################################################
 [PcdsFixedAtBuild]
-	gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|$(DEBUG_PROPERTY_MASK)
-	gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL)
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|$(DEBUG_PROPERTY_MASK)
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL)
 
 
 ################################################################################
@@ -52,51 +58,48 @@
 #
 ################################################################################
 [LibraryClasses]
-	#
-	# Entry Point Libraries
-	#
-	UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
+  #
+  # Entry Point Libraries
+  #
+  !if $(MEOW_MODE) == APPLICATION
+    UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
+  !elseif $(MEOW_MODE) == DRIVER
+    UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
+  !endif
 
-	#
-	# Common Libraries
-	#
-	BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
-	BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
-	UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
-	PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
-	PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
-	MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
-	UefiBootServicesTableLib|MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.inf
-	UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
+  #
+  # Common Libraries
+  #
+  BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
+  BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
+  UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
+  PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
+  PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+  MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+  UefiBootServicesTableLib|MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.inf
+  UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
 
-	UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
-	DxeServicesTableLib|MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
-	DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
-	PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
-	HobLib|MdePkg/Library/DxeHobLib/DxeHobLib.inf
-	PeCoffGetEntryPointLib|MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
-	ReportStatusCodeLib|MdePkg/Library/BaseReportStatusCodeLibNull/BaseReportStatusCodeLibNull.inf
-	HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
-	SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
-	UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
+  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
+  DxeServicesTableLib|MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
+  DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
+  PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
+  HobLib|MdePkg/Library/DxeHobLib/DxeHobLib.inf
+  PeCoffGetEntryPointLib|MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
+  ReportStatusCodeLib|MdePkg/Library/BaseReportStatusCodeLibNull/BaseReportStatusCodeLibNull.inf
+  HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
+  SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
+  UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
 
-	!if $(DEBUG_ENABLE_OUTPUT)
-		DebugLib|MdePkg/Library/UefiDebugLibConOut/UefiDebugLibConOut.inf
-		DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
-	!else   ## DEBUG_ENABLE_OUTPUT
-		DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
-	!endif  ## DEBUG_ENABLE_OUTPUT
+  !if $(DEBUG_ENABLE_OUTPUT)
+    DebugLib|MdePkg/Library/UefiDebugLibConOut/UefiDebugLibConOut.inf
+    DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
+  !else   ## DEBUG_ENABLE_OUTPUT
+    DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
+  !endif  ## DEBUG_ENABLE_OUTPUT
 
-	DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
-	#IoLib|MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsic.inf
-	#PciLib|MdePkg/Library/BasePciLibCf8/BasePciLibCf8.inf
-	#PciCf8Lib|MdePkg/Library/BasePciCf8Lib/BasePciCf8Lib.inf
-	#SynchronizationLib|MdePkg/Library/BaseSynchronizationLib/BaseSynchronizationLib.inf
-	#UefiRuntimeLib|MdePkg/Library/UefiRuntimeLib/UefiRuntimeLib.inf
-	#HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
-	#UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
-	FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
-	SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
+  DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+  FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
+  SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
 
 
 ###################################################################################################
@@ -118,7 +121,11 @@
 #
 ###################################################################################################
 [Components]
-	MeowPkg/Meow/Meow.inf
+  !if $(MEOW_MODE) == APPLICATION
+    MeowPkg/Meow/Meow.inf
+  !elseif $(MEOW_MODE) == DRIVER
+    MeowPkg/Meow/MeowDrv.inf
+  !endif
 
 
 ###################################################################################################
@@ -130,5 +137,6 @@
 #                        module style (EDK or EDKII) specified in [Components] section.
 #
 ###################################################################################################
-#[BuildOptions]
-
+[BuildOptions]
+        *_*_*_CC_FLAGS    = -DDISABLE_NEW_DEPRECATED_INTERFACES -DMEOW_MODE=$(MEOW_MODE)
+  RELEASE_*_*_CC_FLAGS    = -DMDEPKG_NDEBUG
