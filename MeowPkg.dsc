@@ -32,14 +32,24 @@
 #  Debug output control
 #
   !if $(TARGET) == RELEASE
-    DEFINE DEBUG_ENABLE_OUTPUT      = FALSE         # Set to TRUE to enable debug output
+    !ifndef $(DEBUG_ENABLE_OUTPUT)
+      DEFINE DEBUG_ENABLE_OUTPUT      = FALSE         # Set to TRUE to enable debug output
+    !endif
   !else
-    DEFINE DEBUG_ENABLE_OUTPUT      = TRUE
-    DEFINE DEBUG_PRINT_ERROR_LEVEL  = 0x80000040    # Flags to control amount of debug output
-    DEFINE DEBUG_PROPERTY_MASK      = 0
+    !ifndef $(DEBUG_ENABLE_OUTPUT)
+      DEFINE DEBUG_ENABLE_OUTPUT      = TRUE
+    !endif
+    !ifndef $(DEBUG_PRINT_ERROR_LEVEL)
+      DEFINE DEBUG_PRINT_ERROR_LEVEL  = 0x80000040    # Flags to control amount of debug output
+    !endif
+    !ifndef $(DEBUG_PROPERTY_MASK)
+      DEFINE DEBUG_PROPERTY_MASK      = 0
+    !endif
   !endif
 
-  DEFINE MEOW_MODE                  = APPLICATION   # APPLICATION|DRIVER
+  !ifndef $(MEOW_MODE)
+    DEFINE MEOW_MODE                  = APPLICATION   # APPLICATION|DRIVER
+  !endif
 
 
 ################################################################################
@@ -48,8 +58,10 @@
 #
 ################################################################################
 [PcdsFixedAtBuild]
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|$(DEBUG_PROPERTY_MASK)
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL)
+  !if $(TARGET) != RELEASE
+    gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|$(DEBUG_PROPERTY_MASK)
+    gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|$(DEBUG_PRINT_ERROR_LEVEL)
+  !endif
 
 
 ################################################################################
@@ -79,23 +91,23 @@
   UefiBootServicesTableLib|MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.inf
   UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
 
-  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
-  DxeServicesTableLib|MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
   DxeServicesLib|MdePkg/Library/DxeServicesLib/DxeServicesLib.inf
-  PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
+  DxeServicesTableLib|MdePkg/Library/DxeServicesTableLib/DxeServicesTableLib.inf
+  HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
   HobLib|MdePkg/Library/DxeHobLib/DxeHobLib.inf
   PeCoffGetEntryPointLib|MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
+  PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   ReportStatusCodeLib|MdePkg/Library/BaseReportStatusCodeLibNull/BaseReportStatusCodeLibNull.inf
-  HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
   SortLib|MdeModulePkg/Library/UefiSortLib/UefiSortLib.inf
+  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
   UefiHiiServicesLib|MdeModulePkg/Library/UefiHiiServicesLib/UefiHiiServicesLib.inf
 
-  !if $(DEBUG_ENABLE_OUTPUT)
+  !if $(DEBUG_ENABLE_OUTPUT) != FALSE
     DebugLib|MdePkg/Library/UefiDebugLibConOut/UefiDebugLibConOut.inf
     DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
-  !else   ## DEBUG_ENABLE_OUTPUT
+  !else
     DebugLib|MdePkg/Library/BaseDebugLibNull/BaseDebugLibNull.inf
-  !endif  ## DEBUG_ENABLE_OUTPUT
+  !endif
 
   DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
   FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf

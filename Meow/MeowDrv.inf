@@ -10,6 +10,7 @@
   Activity.c
   MainActivity.c
   Meow.c
+  MeowFunctions.c
 
 [Packages]
   MdePkg/MdePkg.dec

@@ -1,12 +1,23 @@
-#ifndef MEOW_MEOWFUNCTIONS_H
-#define MEOW_MEOWFUNCTIONS_H
+#ifndef MEOW_FUNCTIONS_H
+#define MEOW_FUNCTIONS_H
 
-#include <Protocol/DevicePath.h>
+#include "Meow.h"
 
-#include <Library/UefiLib.h>
+#if MEOW_DEBUG == 1
+/**
+  Console Log.
+**/
+VOID
+MeowConsoleLog (
+  IN  CHAR16   *Text
+  );
+#endif
 
+/**
+  Draw Lines.
+**/
 EFI_STATUS
-DrawLines (
+MeowDrawLines (
   IN   CHAR16                  *String,
   IN   EFI_FONT_DISPLAY_INFO   *FontDisplayInfo,
   OUT  EFI_IMAGE_OUTPUT        *ImageOutput,
@@ -14,28 +25,31 @@ DrawLines (
   IN   UINTN                   PosY
   );
 
+/**
+  Clear Screen.
+**/
 VOID
-Log (
-  IN  CHAR16   *Text
+MeowClearScreen (
+  IN  MEOW_ACTIVITY                   *Activity,
+  IN  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Color
   );
 
-UINT32
-SprintUint (
-  IN   UINT32   Decimal,
-  OUT  CHAR16   *Buffer,
-  IN   UINT32   BufferSize,
-  IN   UINT32   Offset
-  );
-
-UINT32
-Max (
-  IN  UINT32  One,
-  IN  UINT32  Another
-  );
-
+/**
+  DevicePath to text.
+**/
 CHAR16 *
 MeowPathToText (
   IN  EFI_DEVICE_PATH_PROTOCOL  *Path
   );
 
-#endif // MEOW_MEOWFUNCTIONS_H
+/**
+  Set Max Res.
+**/
+VOID
+SetMaxRes (
+  OUT  UINT32  *Width,
+  OUT  UINT32  *Height,
+  OUT  UINT32  *BestMode
+  );
+
+#endif // MEOW_FUNCTIONS_H

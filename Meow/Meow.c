@@ -1,194 +1,67 @@
-#include <Uefi.h>
+#include "Meow.h"
 
-#include <Protocol/GraphicsOutput.h>
-#include <Protocol/SimplePointer.h>
-#include <Protocol/SimpleTextInEx.h>
-#include <Protocol/HiiFont.h>
-#include <Protocol/DevicePathToText.h>
+//
 
-#include <Library/UefiBootServicesTableLib.h>
-#include <Library/UefiLib.h>
+STATIC  MEOW_ACTIVITY                     *gTopActivity       = NULL;
+        EFI_GRAPHICS_OUTPUT_PROTOCOL      *gGraphProtocol     = NULL;
+        EFI_HII_FONT_PROTOCOL             *gFontProtocol      = NULL;
 
-#include "Activity.h"
-#include "MainActivity.h"
-#include "MeowFunctions.h"
+#if MEOW_DEVPATH_LIB != 1
+  EFI_DEVICE_PATH_TO_TEXT_PROTOCOL        *gPathConvProtocol  = NULL;
+#endif
 
-///////////////
+//
 
-STATIC ACTIVITY                          *gTopActivity       = NULL;
-
-STATIC EFI_GRAPHICS_OUTPUT_PROTOCOL      *gGraphProtocol     = NULL;
-
-STATIC EFI_HII_FONT_PROTOCOL             *gFontProtocol      = NULL;
-
-STATIC EFI_DEVICE_PATH_TO_TEXT_PROTOCOL  *gPathConvProtocol  = NULL;
-
-///////////////
-
-UINT32
-SprintUint (
-  IN   UINT32   Decimal,
-  OUT  CHAR16   *Buffer,
-  IN   UINT32   BufferSize,
-  IN   UINT32   Offset
-  )
-{
-  CHAR16  Tmp[10];
-  UINT32  MaxVal;
-  UINT32  i;
-
-  //
-
-  MaxVal = 0;
-
-  if (Buffer == NULL) {
-    return MaxVal;
-  }
-
-  for (i = 0; 0 != Decimal; i++) {
-
-    UINT32  Digit;
-
-    //
-
-    Digit = Decimal % 10;
-
-    Tmp[i] = (CHAR16)('0' + Digit);
-    Decimal = Decimal / 10;
-
-    // Trust the compiler it would optimize :)
-
-    if (Digit != 0) {
-      MaxVal = i + 1;
-    }
-  }
-
-  if (MaxVal >= (BufferSize - Offset - 1)) {
-    MaxVal = BufferSize - Offset - 1;
-  }
-
-  for (i = 0; i < MaxVal; i++) {
-    Buffer[Offset + i] = Tmp[MaxVal - i - 1];
-  }
-
-  if (MaxVal == 0) {
-    Buffer[Offset] = L'\0';
-    return 1;
-  }
-
-  return MaxVal;
-}
-
-UINT32
-Max (
-  IN  UINT32  One,
-  IN  UINT32  Another
-  )
-{
-  return (One > Another) ? One : Another;
-}
-
-VOID
-Log (
-  IN  CHAR16   *Text
-  )
-{
-  gST->ConOut->OutputString (gST->ConOut, Text);
-}
-
-EFI_STATUS
-DrawLines (
-  IN   CHAR16                  *String,
-  IN   EFI_FONT_DISPLAY_INFO   *FontDisplayInfo,
-  OUT  EFI_IMAGE_OUTPUT        *ImageOutput,
-  IN   UINTN                   PosX,
-  IN   UINTN                   PosY
-  )
-{
-  return gFontProtocol->StringToImage (
-                          gFontProtocol,
-                          EFI_HII_OUT_FLAG_TRANSPARENT,
-                          String,
-                          FontDisplayInfo,
-                          &ImageOutput,
-                          PosX,
-                          PosY,
-                          NULL,
-                          NULL,
-                          NULL
-                          );
-}
-
-CHAR16 *
-MeowPathToText (
-  IN  EFI_DEVICE_PATH_PROTOCOL  *Path
-  )
-{
-  if (gPathConvProtocol != NULL) {
-    return gPathConvProtocol->ConvertDevicePathToText (Path, TRUE, TRUE);
-  }
-
-  return NULL;
-}
-
-VOID
-ClearScreen (
-  IN  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Color
-  )
-{
-  if (gGraphProtocol != NULL) {
-
-    gGraphProtocol->Blt (
-                      gGraphProtocol,
-                      &Color,
-                      EfiBltVideoFill,
-                      0,
-                      0,
-                      0,
-                      0,
-                      gGraphProtocol->Mode->Info->HorizontalResolution,
-                      gGraphProtocol->Mode->Info->VerticalResolution,
-                      0
-                      );
-  }
-}
-
-EFI_STATUS
-Loop (
+/**
+  Main Loop.
+**/
+STATIC
+MEOW_EVENT_RETURN
+MeowLoop (
   VOID
   )
 {
-  EFI_STATUS  Status;
-  UINTN       IsRunning;
+  MEOW_EVENT_RETURN   Ret;
+
+  //
+
+  Ret = EventReturnNone;
 
   while (TRUE) {
 
+    EFI_STATUS    Status;
+
+    //
+
     if (gTopActivity == NULL) {
-      Log (L"gTopActivity == NULL\n");
-      return EFI_SUCCESS;
-    }
-
-    IsRunning = MainActivityOnEvent (gTopActivity);
-
-    // ESC pressed
-
-    if (IsRunning != 0) {
+      MeowLog (L"gTopActivity == NULL\n");
+      Ret = EventReturnError;
       break;
     }
 
-    Status = ActivityRender (gTopActivity, gGraphProtocol);
+    Ret = MainActivityOnEvent (gTopActivity);
+
+    Status = ActivityRender (gTopActivity, Ret);
 
     if (EFI_ERROR (Status)) {
-      Log (L"Cannot render Activity.\n");
-      return Status;
+      MeowLog (L"Cannot render Activity.\n");
+      Ret = EventReturnError;
+      break;
+    }
+
+    if (Ret != EventReturnNone) {
+      break;
     }
   }
 
-  return EFI_SUCCESS;
+  return Ret;
 }
 
 ///////////////
 
+/**
+  EntryPoint.
+**/
 EFI_STATUS
 EFIAPI
 UefiMain (
@@ -196,13 +69,29 @@ UefiMain (
   IN  EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  EFI_STATUS  Status;
-  UINT32      Width;
-  UINT32      Height;
-  //CHAR16      Line[32];
-  //UINT32      Tmp;
+  EFI_STATUS          Status;
+
+  MEOW_EVENT_RETURN   Ret;
+  BOOLEAN             Reinit;
+  BOOLEAN             Initialized;
+
+  BOOLEAN             EnableCursor;
+  UINT32              Width;
+  UINT32              Height;
+  UINT32              BestMode;
 
   //
+
+  if (gST->ConOut == NULL) {
+    goto Exit;
+  }
+
+  // Backup ConOut attributes.
+
+  EnableCursor = gST->ConOut->Mode->CursorVisible;
+
+  gST->ConOut->EnableCursor (gST->ConOut, FALSE);
+  gST->ConOut->SetCursorPosition (gST->ConOut, 0, 0);
 
   // Graphic access.
 
@@ -214,74 +103,91 @@ UefiMain (
 
   if (EFI_ERROR (Status)) {
     // Well, if graphic's not available, where comes the shell?
-    Log (L"Cannot locate graphics output protocol.\n");
+    MeowLog (L"Cannot locate graphics output protocol.\n");
     goto Done;
   }
 
-  // Assuming screen size won't change.
-  // After all, this is just a boot menu.
+  Width     = 0;
+  Height    = 0;
+  BestMode  = 0;
 
-  Width  = gGraphProtocol->Mode->Info->HorizontalResolution;
-  Height = gGraphProtocol->Mode->Info->VerticalResolution;
+  SetMaxRes (&Width, &Height, &BestMode);
 
-  /*
-  Log (L"Got resolution ");
+  Status = gGraphProtocol->SetMode (gGraphProtocol, BestMode);
 
-  Tmp = SprintUint (Width, Line, 0);
-  Line[Tmp] = 'x';
-  Tmp++ ;
-  Tmp += SprintUint (Height, Line, Tmp);
-  Log (Line);
-  Log (L".\n");
-  */
+  //Status = gBS->InstallMultipleProtocolInterfaces (
+  //                &gST->ConsoleOutHandle,
+  //                &gEfiGraphicsOutputProtocolGuid,
+  //                gGraphProtocol,
+  //                NULL
+  //                );
 
   // Locate font protocol, we use it to draw strings.
-
   Status = gBS->LocateProtocol (&gEfiHiiFontProtocolGuid, NULL, (VOID **)&gFontProtocol);
 
   if (EFI_ERROR (Status)) {
-    Log (L"Cannot locate font protocol.\n");
+    MeowLog (L"Cannot locate font protocol.\n");
     goto Done;
   }
+
+  Initialized = FALSE;
+
+  Init:
+
+  Reinit = FALSE;
 
   // Create the Main Activity.
   Status = NewMainActivity (Width, Height, &gTopActivity);
 
   if (EFI_ERROR (Status)) {
-    Log (L"Cannot allocate MainActivity.\n");
+    MeowLog (L"Cannot allocate MainActivity.\n");
     goto Done;
   }
 
-  Status = gBS->LocateProtocol (
-                  &gEfiDevicePathToTextProtocolGuid,
-                  NULL,
-                  (VOID **)&gPathConvProtocol
-                  );
+  #if MEOW_DEVPATH_LIB != 1
+    Status = gBS->LocateProtocol (
+                    &gEfiDevicePathToTextProtocolGuid,
+                    NULL,
+                    (VOID **)&gPathConvProtocol
+                    );
 
-  if (EFI_ERROR (Status)) {
-    Log (L"Cannot locate device path to text protocol.");
-    gPathConvProtocol = NULL;
-    goto Done;
-  }
+    if (EFI_ERROR (Status)) {
+      MeowLog (L"Cannot locate device path to text protocol.");
+      gPathConvProtocol = NULL;
+      goto Done;
+    }
+  #endif // MEOW_DEVPATH_LIB
 
   // Start the Activity.
-  MainActivityOnStart (gTopActivity);
+  MainActivityOnStart (gTopActivity, Initialized);
+
+  Initialized = TRUE;
 
   // Enter event loop.
 
-  //Log (L"-> loop.\n");
-  Status = Loop ();
-  //Log (L"<- loop.\n");
+  //MeowLog (L"-> loop.\n");
+  Ret = MeowLoop ();
+  //MeowLog (L"<- loop.\n");
 
-  // Log previous exception from event loop.
-
-  if (EFI_ERROR (Status)) {
-    Log (L"Cannot draw frame.\n");
+  if (Ret == EventReturnRefresh) {
+    MeowLog (L"Reinit.\n");
+    Reinit = TRUE;
   }
 
-  FreeActivity (gTopActivity);
+  FreeActivity (gTopActivity, Reinit);
+
+  if (Reinit) {
+    goto Init;
+  }
 
   Done:
+
+  // Restore ConOut attributes.
+
+  gST->ConOut->EnableCursor (gST->ConOut, EnableCursor);
+  gST->ConOut->SetCursorPosition (gST->ConOut, 0, 0);
+
+  Exit:
 
   #if defined(MEOW_MODE) && (MEOW_MODE == APPLICATION)
     Status = EFI_SUCCESS;
